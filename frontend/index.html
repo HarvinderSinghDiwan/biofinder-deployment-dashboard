@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Deploy UI — Dark Terminal</title>
+  <style>
+    :root{
+      --bg:#0b0f13; --panel:#0f1418; --muted:#9aa4ad; --accent:#7c3aed; --success:#9be6a5; --warn:#ffcc66; --err:#ff7b7b; --glass: rgba(255,255,255,0.03);
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      background: linear-gradient(180deg, #05060a 0%, #0b0f13 100%);
+      color: #e6eef6;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: 100vh;
+      gap: 20px;
+      padding: 28px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    /* left panel */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .h {
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: 0.6px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.03);
+      color: #e6eef6;
+      outline: none;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn.primary {
+      background: linear-gradient(90deg, var(--accent), #5b21b6);
+      color: white;
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.04);
+      color: var(--muted);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .small {
+      font-size: 13px;
+      padding: 8px 10px;
+    }
+
+    /* terminal */
+    .terminal {
+      background: #000;
+      border-radius: 10px;
+      padding: 14px;
+      overflow: auto;
+      box-shadow: inset 0 0 80px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.02);
+    }
+    .line {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .ts {
+      color: var(--muted);
+      font-size: 11px;
+      margin-right: 8px;
+    }
+    .stdout { color: var(--success); }
+    .stderr { color: var(--err); }
+    .warn { color: var(--warn); }
+    .info { color: var(--muted); }
+
+    /* header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .controls-foot {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* spinner */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* misc */
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      background: var(--glass);
+      padding: 6px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
+        padding: 14px;
+      }
+      .terminal {
+        height: 360px;
+      }
+    }
+
+    /* Main section adjustments */
+    main {
+      display: flex;
+      flex-direction: column;
+      height: 100%; /* Ensure main takes full height */
+    }
+    #terminal {
+      flex-grow: 1; /* Allow terminal to grow and fill available space */
+      min-height: 0; /* Prevent overflow issues */
+    }
+    .header, .footer-buttons {
+      flex-shrink: 0; /* Prevent header and footer from shrinking */
+    }
+    .footer-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      padding-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="card">
+      <div class="header">
+        <div>
+          <div class="h">Deploy Control</div>
+          <div class="meta">IP: <span style="color:var(--accent)">10.185.42.209:8080</span></div>
+        </div>
+        <div class="badge">Dark</div>
+      </div>
+
+      <div class="controls">
+        <div>
+          <div style="font-weight:700">Frontend (FR)</div>
+          <label>FR Version</label>
+          <input id="frVersion" type="text" placeholder="e.g. 1.2.3" value="" />
+          <label style="margin-top:10px">Structure Search Version</label>
+          <input id="structureVersion" type="text" placeholder="e.g. 2025-09-01" value="" />
+          <div style="margin-top:10px" class="row">
+            <button id="btnDeployFR" class="btn primary">Deploy Frontend</button>
+            <button id="btnAbortFR" class="btn ghost small">Abort</button>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:6px 0">
+
+        <div>
+          <div style="font-weight:700">Backend (ML)</div>
+          <div style="margin-top:10px" class="row">
+            <button id="btnDeployML" class="btn primary">Deploy Backend</button>
+            <button id="btnAbortML" class="btn ghost small">Abort</button>
+          </div>
+        </div>
+
+        <div style="margin-top:6px" class="controls-foot">
+          <div class="switch"><input id="autoscroll" type="checkbox" checked /> <label style="color:var(--muted);font-size:13px">Auto-scroll</label></div>
+          <div style="margin-left:auto"><button id="btnClear" class="btn ghost small">Clear Terminal</button></div>
+        </div>
+
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Notes: This UI uses incremental HTTP streaming. Your backend must allow CORS from this page.</div>
+      </div>
+    </aside>
+
+    <main class="card">
+      <div class="header">
+        <div>
+          <div style="font-weight:700;font-size:16px">Live Deploy Terminal</div>
+          <div class="meta">Shows live stdout/stderr from deployment APIs</div>
+        </div>
+        <div class="meta" id="status">Idle</div>
+      </div>
+
+      <div id="terminal" class="terminal" aria-live="polite"></div>
+
+      <div class="footer-buttons">
+        <button id="btnCopy" class="btn small ghost">Copy</button>
+        <button id="btnDownload" class="btn small ghost">Download Log</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Configuration - UPDATE THIS TO YOUR ACTUAL SERVER
+    const SERVER = 'http://10.185.42.209:8080';
+
+    // State
+    const terminal = document.getElementById('terminal');
+    const statusEl = document.getElementById('status');
+    let lastIndex = 0;
+    let xhrFR = null, xhrML = null;
+    let logBuffer = '';
+    let isDeploying = false;
+
+    function appendLine(text, kind='stdout'){
+      const parts = text.replace(/\r/g,'').split(/\n/);
+      parts.forEach((p, idx) => {
+        if(!p) return;
+        const ts = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.className = 'line ' + (kind==='stderr' ? 'stderr' : kind==='warn' ? 'warn' : kind==='info' ? 'info' : 'stdout');
+        line.innerHTML = '<span class="ts">['+ts+']</span>' + escapeHtml(p);
+        terminal.appendChild(line);
+        logBuffer += '['+ts+'] ' + p + '\n';
+      });
+      const autoscroll = document.getElementById('autoscroll').checked;
+      if(autoscroll) terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>\"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]});
+    }
+
+    function processChunk(chunk){
+      const lines = chunk.split(/\r?\n/);
+      lines.forEach(l => {
+        if(!l) return;
+        if(/error/i.test(l) || /traceback/i.test(l) || /failed/i.test(l)) appendLine(l,'stderr');
+        else if(/warn/i.test(l)) appendLine(l,'warn');
+        else if(/info/i.test(l)) appendLine(l,'info');
+        else appendLine(l,'stdout');
+      });
+    }
+
+    function setButtonState(buttonId, isLoading, isAbort = false) {
+      const btn = document.getElementById(buttonId);
+      const otherDeployBtn = buttonId === 'btnDeployFR' ? document.getElementById('btnDeployML') : document.getElementById('btnDeployFR');
+      if (isLoading) {
+        btn.disabled = true;
+        btn.innerHTML = isLoading ? 
+          '<span class="spinner"></span> ' + (isAbort ? 'Aborting...' : 'Deploying...') : 
+          btn.textContent;
+        otherDeployBtn.disabled = true;
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = isAbort ? 'Abort' : 'Deploy ' + (buttonId === 'btnDeployFR' ? 'Frontend' : 'Backend');
+        if (!isDeploying) {
+          otherDeployBtn.disabled = false;
+        }
+      }
+    }
+
+    function startStream(url, onDone, assignXhr){
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.timeout = 0;
+      xhr.onreadystatechange = function(){
+        if(xhr.readyState === 2){ 
+          statusEl.textContent = 'Connected'; 
+          statusEl.style.color = 'var(--success)';
+        }
+        if(xhr.readyState === 4){
+          if(xhr.status >= 400) {
+            statusEl.textContent = 'Failed (' + xhr.status + ')';
+            statusEl.style.color = 'var(--err)';
+            appendLine('HTTP ' + xhr.status + ' returned from server', 'stderr');
+          } else {
+            statusEl.textContent = 'Complete (' + xhr.status + ')';
+            statusEl.style.color = 'var(--success)';
+          }
+          isDeploying = false;
+          if(onDone) onDone(xhr);
+        }
+      };
+
+      let lastLen = 0;
+      xhr.onprogress = function(){
+        const text = xhr.responseText.substring(lastLen);
+        lastLen = xhr.responseText.length;
+        if(text) processChunk(text);
+      };
+
+      xhr.onerror = function(){ 
+        statusEl.textContent = 'Network Error'; 
+        statusEl.style.color = 'var(--err)';
+        appendLine('Network error while streaming', 'stderr'); 
+        isDeploying = false;
+      };
+      
+      xhr.ontimeout = function(){ 
+        statusEl.textContent = 'Timeout'; 
+        statusEl.style.color = 'var(--err)';
+        appendLine('Streaming timed out', 'stderr'); 
+        isDeploying = false;
+      };
+
+      xhr.send();
+      assignXhr(xhr);
+    }
+
+    function validateInputs() {
+      const fr = document.getElementById('frVersion').value.trim();
+      const ss = document.getElementById('structureVersion').value.trim();
+      
+      if(!fr) {
+        appendLine('FR version is required', 'stderr');
+        return false;
+      }
+      
+      if(!ss) {
+        appendLine('Structure Search version is required', 'stderr');
+        return false;
+      }
+      
+      return true;
+    }
+
+    document.getElementById('btnDeployFR').addEventListener('click', ()=>{
+      if (isDeploying) {
+        appendLine('Cannot start FR deployment: another deployment is in progress', 'warn');
+        return;
+      }
+      if (!validateInputs()) return;
+      
+      const fr = encodeURIComponent(document.getElementById('frVersion').value.trim());
+      const ss = encodeURIComponent(document.getElementById('structureVersion').value.trim());
+      
+      terminal.innerHTML = '';
+      logBuffer = '';
+      lastIndex = 0;
+      statusEl.textContent = 'Starting FR deploy...';
+      statusEl.style.color = 'var(--warn)';
+      
+      isDeploying = true;
+      setButtonState('btnDeployFR', true);
+      setButtonState('btnAbortFR', false, true);
+      
+      const url = `${SERVER}/api/v1/deploy/fr?fr-version=${fr}&structure-search-version=${ss}`;
+      startStream(url, (xhr)=>{ 
+        xhrFR = null; 
+        setButtonState('btnDeployFR', false);
+        setButtonState('btnAbortFR', false, true);
+      }, (x)=>{ xhrFR = x; });
+    });
+
+    document.getElementById('btnAbortFR').addEventListener('click', ()=>{
+      if(xhrFR){ 
+        setButtonState('btnAbortFR', true, true);
+        xhrFR.abort(); 
+        appendLine('FR deploy aborted by user', 'warn'); 
+        statusEl.textContent='Aborted'; 
+        statusEl.style.color = 'var(--warn)';
+        xhrFR=null; 
+        isDeploying = false;
+        setButtonState('btnDeployFR', false);
+        setButtonState('btnAbortFR', false, true);
+      }
+      else appendLine('No FR deploy in progress', 'warn');
+    });
+
+    document.getElementById('btnDeployML').addEventListener('click', ()=>{
+      if (isDeploying) {
+        appendLine('Cannot start ML deployment: another deployment is in progress', 'warn');
+        return;
+      }
+      terminal.innerHTML = '';
+      logBuffer = '';
+      statusEl.textContent = 'Starting ML deploy...';
+      statusEl.style.color = 'var(--warn)';
+      
+      isDeploying = true;
+      setButtonState('btnDeployML', true);
+      setButtonState('btnAbortML', false, true);
+      
+      const url = `${SERVER}/api/v1/deploy/ml`;
+      startStream(url, (xhr)=>{ 
+        xhrML = null; 
+        setButtonState('btnDeployML', false);
+        setButtonState('btnAbortML', false, true);
+      }, (x)=>{ xhrML = x; });
+    });
+
+    document.getElementById('btnAbortML').addEventListener('click', ()=>{
+      if(xhrML){ 
+        setButtonState('btnAbortML', true, true);
+        xhrML.abort(); 
+        appendLine('ML deploy aborted by user', 'warn'); 
+        statusEl.textContent='Aborted';
+        statusEl.style.color = 'var(--warn)';
+        xhrML=null; 
+        isDeploying = false;
+        setButtonState('btnDeployML', false);
+        setButtonState('btnAbortML', false, true);
+      }
+      else appendLine('No ML deploy in progress', 'warn');
+    });
+
+    document.getElementById('btnCopy').addEventListener('click', async ()=>{
+      try{ 
+        await navigator.clipboard.writeText(logBuffer||terminal.innerText); 
+        appendLine('Log copied to clipboard', 'info'); 
+      }
+      catch(e){ appendLine('Copy failed: ' + e.message, 'stderr'); }
+    });
+
+    document.getElementById('btnDownload').addEventListener('click', ()=>{
+      const blob = new Blob([logBuffer||terminal.innerText], {type:'text/plain;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `deploy-log-${Date.now()}.txt`;
+      document.body.appendChild(a); a.click(); a.remove();
+      appendLine('Log downloaded', 'info');
+    });
+
+    document.getElementById('btnClear').addEventListener('click', ()=>{ 
+      terminal.innerHTML=''; 
+      logBuffer=''; 
+      appendLine('Terminal cleared', 'info'); 
+    });
+
+    window.addEventListener('beforeunload', ()=>{ 
+      if(xhrFR) xhrFR.abort(); 
+      if(xhrML) xhrML.abort(); 
+    });
+
+    appendLine('Deploy terminal initialized. Ready for commands.', 'info');
+    appendLine('Remember to update the SERVER constant in JavaScript to point to your backend', 'warn');
+  </script>
+</body>
+</html>
