@@ -7,6 +7,8 @@ import psycopg2
 import datetime
 import os
 import redis
+import time
+import uuid
 
 repo_name = "ls-prime"
 marklogic_path = "ls-prime/marklogic"
@@ -26,6 +28,11 @@ DB_HOST = os.getenv('DB_HOST', 'postgres.agentic-ai.lifesciences-dev.casinternal
 DB_NAME = os.getenv('DB_NAME', 'deploymentdashboard')
 DB_USER = os.getenv('DB_USER', 'postgres')
 DB_PASS = os.getenv('DB_PASS', 'postgres')
+
+# Lock settings
+LOCK_TIMEOUT = 300  # Short timeout (30 seconds) to detect crashed servers
+HEARTBEAT_INTERVAL = 5  # Heartbeat every 5 seconds
+SERVER_ID = str(uuid.uuid4())  # Unique server identifier
 
 def create_tables():
     """Create tables for deployment history if they don't exist."""
@@ -116,6 +123,23 @@ def run_command(command):
     except Exception as e:
         yield f"❌ Error executing command: {str(e)}\n\n", None
 
+def heartbeat(lock_key, stop_event):
+    """Periodically refresh the lock's expiration time."""
+    while not stop_event.is_set():
+        r.expire(lock_key, LOCK_TIMEOUT)
+        for _ in range(10):
+            if stop_event.is_set():
+                break
+            time.sleep(HEARTBEAT_INTERVAL / 10)
+
+def cleanup_stale_locks():
+    """Check and clean up stale locks on server startup."""
+    for lock_key in ['deploy_fr_lock', 'deploy_ml_lock']:
+        if r.exists(lock_key):
+            # Only delete if lock has expired (TTL <= 0)
+            if r.ttl(lock_key) <= 0:
+                r.delete(lock_key)
+
 @app.route('/')
 def home():
     """Return API documentation."""
@@ -166,8 +190,13 @@ def deploy_frontend():
 
     # Check and acquire lock
     lock_key = 'deploy_fr_lock'
-    if not r.set(lock_key, 'locked', nx=True, ex=3600):  # 1 hour timeout
+    if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "Deployment is going on for the frontend application."}), 409
+
+    # Start heartbeat thread
+    stop_heartbeat = threading.Event()
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat))
+    heartbeat_thread.start()
 
     def generate():
         try:
@@ -216,7 +245,11 @@ def deploy_frontend():
 
             insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version)
         finally:
-            r.delete(lock_key)
+            stop_heartbeat.set()
+            heartbeat_thread.join(timeout=1.0)
+            # Only release lock if this server owns it
+            if r.get(lock_key) == SERVER_ID.encode():
+                r.delete(lock_key)
 
     return Response(generate(), mimetype='text/event-stream')
 
@@ -225,8 +258,13 @@ def deploy_marklogic():
     """Deploy MarkLogic in DEV-FULL."""
     # Check and acquire lock
     lock_key = 'deploy_ml_lock'
-    if not r.set(lock_key, 'locked', nx=True, ex=3600):  # 1 hour timeout
+    if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "Deployment is going on for the MarkLogic application."}), 409
+
+    # Start heartbeat thread
+    stop_heartbeat = threading.Event()
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat))
+    heartbeat_thread.start()
 
     def generate():
         try:
@@ -313,7 +351,11 @@ def deploy_marklogic():
 
             insert_ml_log(build_id, dt, log, status)
         finally:
-            r.delete(lock_key)
+            stop_heartbeat.set()
+            heartbeat_thread.join(timeout=1.0)
+            # Only release lock if this server owns it
+            if r.get(lock_key) == SERVER_ID.encode():
+                r.delete(lock_key)
 
     return Response(generate(), mimetype='text/event-stream')
 
@@ -393,5 +435,6 @@ def health_check():
     return jsonify({"status": "healthy", "service": "simple-command-api"})
 
 if __name__ == '__main__':
+    cleanup_stale_locks()  # Clean up only expired locks on startup
     create_tables()  # Initialize database tables
-    app.run(host='0.0.0.0', port=8081, debug=False)
+    app.run(host='0.0.0.0', port=8080, debug=False)
