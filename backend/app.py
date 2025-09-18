@@ -90,7 +90,7 @@ def get_next_ml_build_id():
     return 1 if max_id is None else max_id + 1
 
 def get_next_cj_build_id():
-    """Get the next build ID for custom job deployments."""
+    """Get the next build ID for corb job deployments."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
     cur.execute("SELECT MAX(build_id) FROM deploy_cj_history")
@@ -120,7 +120,7 @@ def insert_ml_log(build_id, dt, log, status):
     conn.close()
 
 def insert_cj_log(build_id, dt, log, status, job_name):
-    """Insert custom job deployment log into the database."""
+    """Insert corb job deployment log into the database."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
     cur.execute("INSERT INTO deploy_cj_history (build_id, deploy_datetime, output_log, status, job_name) VALUES (%s, %s, %s, %s, %s)", 
@@ -163,7 +163,7 @@ def heartbeat(lock_key, stop_event):
 
 def cleanup_stale_locks():
     """Check and clean up stale locks on server startup."""
-    for lock_key in ['deploy_fr_lock', 'deploy_ml_lock', 'deploy_cj_lock']:
+    for lock_key in ['deploy_fr_lock', 'deploy_ml_cj_lock']:
         if r.exists(lock_key):
             # Only delete if lock has expired (TTL <= 0)
             if r.ttl(lock_key) <= 0:
@@ -178,16 +178,16 @@ def home():
             "/": "Displays this doc",
             "/api/v1/deploy/fr": "Deploy UI and MIDDLEWARE in DEV-FULL",
             "/api/v1/deploy/ml": "Deploy MARKLOGIC in DEV-FULL",
-            "/api/v1/run/cj": "Run custom job with specified job name",
+            "/api/v1/run/cj": "Run corb job with specified job name",
             "/api/v1/history/fr": "Get history for FR deployments (last 10 or specific buildId)",
             "/api/v1/history/ml": "Get history for ML deployments (last 10 or specific buildId)",
-            "/api/v1/history/cj": "Get history for custom job runs (last 10 or specific buildId)",
+            "/api/v1/history/cj": "Get history for corb job runs (last 10 or specific buildId)",
             "/health": "Health check"
         },
         "guide": {
             "deploy_ui_and_middleware": "/api/v1/deploy/fr?fr_version=x.y.z-SNAPSHOT&structure_search_version=x.y.z-SNAPSHOT",
             "deploy_marklogic": "/api/v1/deploy/ml",
-            "run_custom_job": "/api/v1/run/cj?job-name=somename",
+            "run_corb_job": "/api/v1/run/cj?job-name=somename",
             "history_fr": "/api/v1/history/fr or /api/v1/history/fr?buildId=1234",
             "history_ml": "/api/v1/history/ml or /api/v1/history/ml?buildId=1234",
             "history_cj": "/api/v1/history/cj or /api/v1/history/cj?buildId=1234"
@@ -290,9 +290,9 @@ def deploy_frontend():
 def deploy_marklogic():
     """Deploy MarkLogic in DEV-FULL."""
     # Check and acquire lock
-    lock_key = 'deploy_ml_lock'
+    lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
-        return jsonify({"error": "Deployment is going on for the MarkLogic application."}), 409
+        return jsonify({"error": "Deployment is going on for the MarkLogic application or a corb job is running."}), 409
 
     # Start heartbeat thread
     stop_heartbeat = threading.Event()
@@ -393,8 +393,8 @@ def deploy_marklogic():
     return Response(generate(), mimetype='text/event-stream')
 
 @app.route('/api/v1/run/cj')
-def run_custom_job():
-    """Run custom job with specified job name."""
+def run_corb_job():
+    """Run corb job with specified job name."""
     job_name = request.args.get('job-name')
     if job_name is None:
         return jsonify({
@@ -406,9 +406,9 @@ def run_custom_job():
         }), 400
 
     # Check and acquire lock
-    lock_key = 'deploy_cj_lock'
+    lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
-        return jsonify({"error": "Custom job is already running."}), 409
+        return jsonify({"error": "corb job is already running or a MarkLogic deployment is in progress."}), 409
 
     # Start heartbeat thread
     stop_heartbeat = threading.Event()
@@ -422,7 +422,7 @@ def run_custom_job():
             log = ''
             status = True
 
-            msg = f"Proceeding to run custom job {job_name} in DEV-FULL\n\n"
+            msg = f"Proceeding to run corb job {job_name} in DEV-FULL\n\n"
             yield msg
             log += msg
             sleep(1)
@@ -465,22 +465,7 @@ def run_custom_job():
             sleep(1)
 
             rc = None
-            for output, return_code in run_command('cd $(pwd)/{} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml'.format(marklogic_path)):
-                if return_code is None:
-                    yield output
-                    log += output
-                else:
-                    rc = return_code
-                    if rc != 0:
-                        status = False
-
-            msg = "\nReloading modules\n"
-            yield msg
-            log += msg
-            sleep(1)
-
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml'.format(marklogic_path)):
+            for output, return_code in run_command('cd $(pwd)/{} && ./gradlew {} -PenvironmentName=ls-dev-full-ml'.format(marklogic_path,job_name)):
                 if return_code is None:
                     yield output
                     log += output
@@ -580,7 +565,7 @@ def history_ml():
 
 @app.route('/api/v1/history/cj')
 def history_cj():
-    """Get custom job run history (last 10 or specific buildId)."""
+    """Get corb job run history (last 10 or specific buildId)."""
     build_id = request.args.get('buildId')
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
@@ -610,7 +595,7 @@ def history_cj():
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'job-name': row[3]} for row in rows]
+        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'jobName': row[3]} for row in rows]
         return jsonify(history)
 
 @app.route('/api/v1/health')
