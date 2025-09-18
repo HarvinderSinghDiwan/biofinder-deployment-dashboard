@@ -1,711 +1,761 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Deploy UI — Dark Console</title>
+  <title>Deploy UI — Cyberpunk Centered Final Updated</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Orbitron:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Orbitron:wght@700&display=swap');
 
     :root {
-      --bg: radial-gradient(circle at center, #1a2e4e 0%, #0a0f2f 100%); /* Blue theme default */
-      --panel: linear-gradient(135deg, rgba(25, 30, 40, 0.7), rgba(55, 60, 80, 0.7)); /* Blue glassmorphism */
-      --muted: #a0a7b5; /* Softer gray for text */
-      --accent: #1e40af; /* Blue accent */
-      --neon-red: #1e3a8a; /* Darker blue for gradients */
-      --deep-blue: #1e3a8a; /* Deep blue for contrast */
-      --success: #22c55e; /* Bright green for success */
-      --warn: #f59e0b; /* Warm amber for warnings */
-      --err: #1e40af; /* Blue for errors */
-      --glass: rgba(255, 255, 255, 0.08); /* Glass effect */
-      --glow: rgba(30, 64, 175, 0.5); /* Blue glowing accent */
+      --bg: #0a0a1a;
+      --panel: rgba(20, 20, 30, 0.85);
+      --neon: #00ffea;
+      --neon-glow: rgba(0, 255, 234, 0.5);
+      --text: #e0e0e0;
+      --muted: #6b7280;
+      --success: #10b981;
+      --error: #f43f5e;
+      --warn: #f59e0b;
     }
 
     html, body {
       height: 100%;
       margin: 0;
-      font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
-      font-weight: 400;
+      font-family: 'Roboto Mono', monospace;
       background: var(--bg);
-      color: #e2e8f0;
-      position: relative;
-      overflow-y: auto; /* Enable scrollbar only when content exceeds viewport */
-      animation: fadeIn 1s ease-in;
-    }
-
-    /* Dynamic starry background */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      z-index: -1;
-    }
-
-    body::after {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-      background-size: 50px 50px;
-      animation: starTwinkle 10s linear infinite;
-      opacity: 0.3;
-      z-index: -1;
-    }
-
-    @keyframes starTwinkle {
-      0% { background-position: 0 0; opacity: 0.3; }
-      50% { opacity: 0.5; }
-      100% { background-position: 50px 50px; opacity: 0.3; }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    @keyframes pulse {
-      0% { box-shadow: 0 0 8px var(--glow); }
-      50% { box-shadow: 0 0 16px var(--glow); }
-      100% { box-shadow: 0 0 8px var(--glow); }
-    }
-
-    @keyframes slideIn {
-      from { transform: translateX(-10px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-
-    @keyframes typing {
-      from { transform: translateX(-5px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      color: var(--text);
+      overflow: hidden;
     }
 
     .app {
       display: grid;
-      grid-template-columns: 360px 1fr 360px;
-      min-height: 100vh;
-      gap: 12px;
-      padding: 12px;
+      grid-template-columns: 1fr 2fr 1fr;
+      gap: 16px;
+      height: 100vh;
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
       box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      height: 100%;
+      overflow: hidden;
     }
 
     .card {
       background: var(--panel);
-      backdrop-filter: blur(12px); /* Enhanced blur */
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), 0 0 12px var(--glow);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      border: 1px solid var(--neon-glow);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 0 12px var(--neon-glow);
+      transition: box-shadow 0.3s ease;
+      flex: 1;
       display: flex;
       flex-direction: column;
-      min-height: 618px; /* Balance UI + Middleware and MARKLOGIC panels */
-      position: relative; /* Ensure sticky positioning works within card */
+      min-height: 150px;
+      max-height: 33.33%;
+      box-sizing: border-box;
     }
 
     .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.9), 0 0 20px var(--glow);
+      box-shadow: 0 0 20px var(--neon-glow);
     }
 
-    /* Controls */
-    .controls {
+    .console-card {
+      background: var(--panel);
+      border: 1px solid var(--neon-glow);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 0 12px var(--neon-glow);
+      transition: box-shadow 0.3s ease;
+      flex-grow: 1;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      flex-grow: 1; /* Ensure content stretches to fill panel */
+      box-sizing: border-box;
+      position: relative;
+      height: 100%;
+    }
+
+    .console-card:hover {
+      box-shadow: 0 0 20px var(--neon-glow);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-shrink: 0;
     }
 
     .h {
       font-family: 'Orbitron', sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      color: var(--accent);
-      letter-spacing: 0.8px;
+      font-size: 16px;
+      color: var(--neon);
       text-transform: uppercase;
     }
 
-    label {
-      display: block;
+    .meta {
       font-size: 11px;
-      font-weight: 600;
       color: var(--muted);
-      margin-bottom: 6px;
     }
 
-    input[type="text"], select {
+    .meta span {
+      color: var(--neon);
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-grow: 1;
+      justify-content: space-between;
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    input[type="text"] {
       width: 100%;
-      padding: 8px;
-      border-radius: 8px;
-      background: rgba(20, 25, 30, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #f3f4f6;
-      font-size: 12px;
-      font-weight: 400;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--neon);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 11px;
       outline: none;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+      transition: box-shadow 0.3s ease;
       box-sizing: border-box;
     }
 
-    input[type="text"]:focus, select:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 10px var(--glow);
-      animation: pulse 1.5s infinite;
-      transform: scale(1.02);
+    input[type="text"]:focus {
+      box-shadow: 0 0 8px var(--neon-glow);
     }
 
     .row {
       display: flex;
-      gap: 8px;
+      gap: 10px;
+      margin-top: auto;
     }
 
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 10px 14px;
-      border-radius: 8px;
+      padding: 8px 16px;
+      border-radius: 4px;
       border: none;
       cursor: pointer;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-      font-size: 13px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 12px;
       transition: all 0.3s ease;
+      box-sizing: border-box;
     }
 
     .btn.primary {
-      background: linear-gradient(90deg, var(--accent), var(--neon-red));
-      color: white;
-      box-shadow: 0 0 12px var(--glow);
+      background: var(--neon);
+      color: #000;
+      box-shadow: 0 0 8px var(--neon-glow);
     }
 
     .btn.primary:hover {
-      background: linear-gradient(90deg, var(--accent), var(--neon-red));
-      transform: scale(1.05);
-      animation: pulse 1.5s infinite;
-      box-shadow: 0 0 20px var(--glow);
+      box-shadow: 0 0 16px var(--neon-glow);
+      transform: scale(1.03);
     }
 
     .btn.ghost {
       background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: var(--muted);
+      border: 1px solid var(--neon);
+      color: var(--neon);
     }
 
     .btn.ghost:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #f3f4f6;
-      transform: translateY(-2px);
+      background: rgba(0, 255, 234, 0.1);
     }
 
     .btn:disabled {
-      opacity: 0.4;
+      opacity: 0.5;
       cursor: not-allowed;
-      box-shadow: none;
-      transform: none;
     }
 
-    .small {
-      font-size: 11px;
-      padding: 6px 10px;
+    .switch-btn {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: linear-gradient(90deg, var(--neon), rgba(0, 255, 234, 0.7));
+      color: #000;
+      border: 2px solid var(--neon);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-glow);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      text-transform: uppercase;
     }
 
-    /* Terminal */
-    .terminal {
-      background: #0c0c12;
-      border-radius: 10px;
-      padding: 12px;
-      flex-grow: 1;
-      max-height: 70vh;
+    .switch-btn:hover {
+      box-shadow: 0 0 20px var(--neon-glow);
+      transform: scale(1.05);
+      animation: glitch 0.3s linear infinite;
+    }
+
+    @keyframes glitch {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+      100% { transform: translate(0); }
+    }
+
+    .history-card {
+      background: var(--panel);
+      border: 1px solid var(--neon-glow);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 0 12px var(--neon-glow);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 150px;
+      max-height: 33.33%;
+      box-sizing: border-box;
+    }
+
+    .history-card:hover {
+      box-shadow: 0 0 20px var(--neon-glow);
+    }
+
+    ul.history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
       overflow-y: auto;
-      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9), 0 0 15px var(--glow);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex-grow: 1;
+      font-size: 11px;
+    }
+
+    ul.history-list li {
+      padding: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      transition: color 0.3s ease;
+      display: flex;
+      align-items: center;
+    }
+
+    ul.history-list li:hover {
+      color: var(--neon);
+    }
+
+    .history-item .datetime {
+      font-size: 10px;
+      color: var(--muted);
+      display: block;
+    }
+
+    .history-item .build-id {
+      font-weight: 700;
+    }
+
+    .history-item span:not(.datetime) {
+      font-size: 11px;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .status-indicator.pass {
+      background: var(--success);
+      box-shadow: 0 0 5px var(--success);
+    }
+
+    .status-indicator.fail {
+      background: var(--error);
+      box-shadow: 0 0 5px var(--error);
+    }
+
+    .status-indicator.unknown {
+      background: var(--muted);
+      box-shadow: 0 0 5px var(--muted);
+    }
+
+    .terminal {
+      background: #000;
+      border-radius: 8px;
+      padding: 14px;
+      flex-grow: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 48px;
+      max-height: calc(100% - 38px - 48px); /* header (38px) + sticky buttons (48px) */
+      box-sizing: border-box;
     }
 
     .line {
-      font-family: 'Roboto Mono', ui-monospace, monospace;
       white-space: pre-wrap;
       word-break: break-word;
-      font-size: 12px;
       line-height: 1.5;
-      color: #e2e8f0;
-    }
-
-    .line[data-new="true"] {
-      animation: typing 0.3s ease-out;
     }
 
     .ts {
       color: var(--muted);
-      font-size: 10px;
       margin-right: 8px;
     }
 
     .stdout { color: var(--success); }
-    .stderr { color: var(--err); }
+    .stderr { color: var(--error); }
     .warn { color: var(--warn); }
-    .info { color: var(--accent); }
+    .info { color: var(--neon); }
 
-    /* Header */
-    .header {
-      display: flex;
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 10, 26, 0.9);
+      z-index: 1000;
+      justify-content: center;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 24px;
+      color: var(--neon);
+      text-shadow: 0 0 12px var(--neon-glow);
+      animation: pulse 1.5s ease-in-out infinite;
+      text-align: center;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.5; text-shadow: 0 0 12px var(--neon-glow); }
+      50% { opacity: 1; text-shadow: 0 0 24px var(--neon-glow); }
+      100% { opacity: 0.5; text-shadow: 0 0 12px var(--neon-glow); }
+    }
+
+    .sticky-buttons {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      background: var(--panel);
+      padding: 8px;
+      border-radius: 4px;
+      box-shadow: 0 0 8px var(--neon-glow);
       flex-shrink: 0;
     }
 
-    .meta {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 600;
+    .toggle-auto {
+      background: var(--neon);
+      color: #000;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--neon-glow);
+      transition: all 0.3s ease;
     }
 
-    /* Spinner */
+    .toggle-auto:hover {
+      box-shadow: 0 0 16px var(--neon-glow);
+    }
+
     .spinner {
       display: inline-block;
-      width: 12px;
-      height: 12px;
-      border: 2px solid rgba(255, 255, 255, 0.2);
+      width: 10px;
+      height: 10px;
+      border: 2px solid var(--neon);
       border-radius: 50%;
-      border-top-color: var(--accent);
-      animation: spin 0.8s ease-in-out infinite;
+      border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
 
-    /* Misc */
-    .badge {
-      background: var(--glass);
-      padding: 5px 8px;
-      border-radius: 999px;
-      font-size: 10px;
-      color: var(--muted);
-      border: 1px solid var(--glow);
-      transition: transform 0.3s ease;
-    }
-
-    .badge:hover {
-      transform: scale(1.05);
-    }
-
-    /* History list */
-    ul.history-list {
-      list-style: none;
-      padding: 0;
-      margin: 8px 0 0 0;
-      background: var(--panel);
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(12px);
-    }
-
-    ul.history-list#frHistory {
-      height: 296px; /* Fits 6 history items (6 × ~48px + 8px margin) */
-      overflow-y: auto; /* Vertical scrollbar for more than 6 items */
-      overflow-x: hidden; /* Prevent horizontal scrollbar */
-    }
-
-    ul.history-list li {
-      padding: 6px 10px;
-      cursor: pointer;
-      font-size: 10px;
-      position: relative;
-      padding-left: 24px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      transition: background 0.3s ease, transform 0.2s ease, color 0.3s ease;
-    }
-
-    ul.history-list li[data-new="true"] {
-      animation: slideIn 0.3s ease-out;
-    }
-
-    ul.history-list li:last-child {
-      border-bottom: none;
-    }
-
-    ul.history-list li:hover {
-      color: var(--accent);
-      background: rgba(255, 255, 255, 0.05);
-      transform: translateX(4px);
-    }
-
-    ul.history-list li::before {
-      content: '';
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-
-    ul.history-list li[status="true"]::before {
-      background-color: var(--success);
-      box-shadow: 0 0 8px var(--success);
-    }
-
-    ul.history-list li[status="false"]::before {
-      background-color: var(--err);
-      box-shadow: 0 0 8px var(--err);
-    }
-
-    .history-item {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      position: relative;
-      word-break: break-word; /* Wrap long text to prevent horizontal overflow */
-    }
-
-    .history-item .datetime {
-      position: absolute;
-      top: 6px;
-      right: 10px;
-      font-size: 9px;
-      color: var(--muted);
-      word-break: break-word; /* Wrap long date/time */
-    }
-
-    .history-item span:not(.datetime) {
-      display: block;
-      font-size: 10px;
-      color: var(--muted);
-      word-break: break-word; /* Wrap long version strings */
-    }
-
-    .history-item .build-id {
-      font-weight: 600;
-      font-size: 11px;
-      color: #f3f4f6;
-      word-break: break-word; /* Wrap long build IDs */
-    }
-
-    /* Sticky buttons (viewport-level) */
-    .sticky-buttons {
-      position: fixed;
-      bottom: 16px;
-      left: 50%; /* Center horizontally */
-      transform: translateX(-50%); /* Adjust for centering */
-      z-index: 1000;
-      display: flex;
-      flex-direction: row; /* Horizontal layout */
-      gap: 8px;
-    }
-
-    .sticky-button {
-      background: linear-gradient(90deg, var(--accent), var(--neon-red));
-      color: white;
-      box-shadow: 0 0 15px var(--glow);
-      border-radius: 8px;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      font-size: 11px;
-      padding: 6px 10px;
-    }
-
-    .sticky-button:hover {
-      transform: scale(1.05);
-      animation: pulse 1.5s infinite;
-      box-shadow: 0 0 20px var(--glow);
-    }
-
-    /* Toggle button (inside MARKLOGIC panel) */
-    .color-balls {
-      position: sticky;
-      bottom: 16px; /* Align with panel padding */
-      right: 16px; /* Bottom-right corner of MARKLOGIC panel */
-    }
-
-    .toggle-auto {
-      background: linear-gradient(90deg, var(--accent), var(--neon-red));
-      color: white;
-      box-shadow: 0 0 15px var(--glow);
-      border-radius: 8px;
-      padding: 6px 10px;
-      font-size: 11px;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .toggle-auto:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px var(--glow);
-      animation: pulse 1.5s infinite;
-    }
-
-    @media (max-width: 900px) {
+    @media (max-width: 1000px) {
       .app {
         grid-template-columns: 1fr;
-        grid-auto-rows: auto;
-        padding: 10px;
-        min-height: 100vh;
+        height: auto;
+        overflow-y: auto;
+      }
+
+      .panel {
+        gap: 8px;
+      }
+
+      .card, .history-card, .console-card {
+        padding: 12px;
+        max-height: none;
       }
 
       .terminal {
-        max-height: 40vh;
-        flex-grow: 1;
-        overflow-y: auto;
+        max-height: 30vh;
+        margin-bottom: 0;
       }
 
       .sticky-buttons {
-        bottom: 10px;
-        left: 50%; /* Keep centered */
-        transform: translateX(-50%); /* Adjust for centering */
-        flex-direction: row; /* Keep horizontal */
+        position: static;
+        margin-top: 12px;
       }
 
-      .color-balls {
-        bottom: 10px; /* Adjusted for mobile, align with panel padding */
-        right: 10px; /* Bottom-right corner of MARKLOGIC panel */
+      .loading-overlay {
+        font-size: 18px;
       }
 
-      ul.history-list#frHistory {
-        height: 290px; /* Slightly adjusted for mobile to fit 6 items */
-        overflow-y: auto;
-        overflow-x: hidden; /* Prevent horizontal scrollbar */
+      .switch-btn {
+        top: 8px;
+        left: 8px;
+        padding: 6px 12px;
+        font-size: 12px;
       }
-    }
-
-    /* Main section adjustments */
-    main {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-    }
-
-    #terminal {
-      flex-grow: 1;
-      max-height: 70vh;
-      overflow-y: auto;
-    }
-
-    .header {
-      flex-shrink: 0;
     }
   </style>
 </head>
 <body>
+  <button id="modeToggle" class="switch-btn">DEV</button>
+  <div id="loading-overlay" class="loading-overlay">LOADING...</div>
   <div class="app">
-    <aside class="card">
-      <div class="header">
-        <div>
-          <div class="h">Deploy Control - UI + Middleware</div>
-          <div class="meta">SERVER: <span style="color:var(--accent)">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
+    <div class="panel">
+      <div id="uiMiddlewareCard" class="card">
+        <div class="header">
+          <div>
+            <div class="h">UI + Middleware</div>
+            <div class="meta">SERVER: <span class="server-url">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
+          </div>
         </div>
-        <div class="badge">Dark</div>
-      </div>
-
-      <div class="controls">
-        <div>
+        <div class="controls">
           <label>UI and Middleware Version</label>
-          <input id="frVersion" type="text" placeholder="e.g. 1.2.3" value="" />
-          <label style="margin-top:8px">Structure Search Version</label>
-          <input id="structureVersion" type="text" placeholder="e.g. 2025-09-01" value="" />
-          <div style="margin-top:8px" class="row">
-            <button id="btnDeployFR" class="btn primary">Deploy UI + Middleware</button>
-            <button id="btnAbortFR" class="btn ghost small">Abort</button>
+          <input id="frVersion" type="text" placeholder="e.g. 1.2.3" />
+          <label>Structure Search Version</label>
+          <input id="structureVersion" type="text" placeholder="e.g. 2025-09-01" />
+          <div class="row">
+            <button id="btnDeployFR" class="btn primary">Deploy</button>
+            <button id="btnAbortFR" class="btn ghost">Abort</button>
           </div>
         </div>
-
-        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:6px 0">
-
-        <div>
-          <div style="font-weight:700">History</div>
-          <ul id="frHistory" class="history-list"></ul>
-        </div>
-      </div>
-    </aside>
-
-    <main class="card">
-      <div class="header">
-        <div>
-          <div style="font-weight:700;font-size:16px">Live Console</div>
-          <div class="meta">Shows live stdout/stderr from deployment APIs</div>
-        </div>
-        <div class="meta" id="status">Idle</div>
       </div>
 
-      <div id="terminal" class="terminal" aria-live="polite"></div>
-    </main>
-
-    <aside class="card">
-      <div class="header">
-        <div>
-          <div class="h">Deploy Control - MARKLOGIC</div>
-          <div class="meta">SERVER: <span style="color:var(--accent)">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
-        </div>
-        <div class="badge">Dark</div>
-      </div>
-
-      <div class="controls">
-        <div>
-          <div style="margin-top:8px" class="row">
-            <button id="btnDeployML" class="btn primary">Deploy MARKLOGIC</button>
-            <button id="btnAbortML" class="btn ghost small">Abort</button>
+      <div class="card">
+        <div class="header">
+          <div>
+            <div class="h">Corb Jobs</div>
+            <div class="meta">SERVER: <span class="server-url">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
           </div>
         </div>
-
-        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:6px 0">
-
-        <div>
-          <div style="font-weight:700">History</div>
-          <ul id="mlHistory" class="history-list"></ul>
+        <div class="controls">
+          <label>Job Name</label>
+          <input id="cjJobName" type="text" placeholder="e.g. job-123" />
+          <div style="flex-grow: 1;"></div>
+          <div class="row">
+            <button id="btnRunCJ" class="btn primary">Run</button>
+            <button id="btnAbortCJ" class="btn ghost">Abort</button>
+          </div>
         </div>
       </div>
 
-      <div class="color-balls">
-        <button id="toggleAuto" class="toggle-auto">Stop Auto-Change</button>
+      <div class="card">
+        <div class="header">
+          <div>
+            <div class="h">MARKLOGIC</div>
+            <div class="meta">SERVER: <span class="server-url">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
+          </div>
+        </div>
+        <div class="controls">
+          <div style="flex-grow: 1;"></div>
+          <div class="row">
+            <button id="btnDeployML" class="btn primary">Deploy</button>
+            <button id="btnAbortML" class="btn ghost">Abort</button>
+          </div>
+        </div>
       </div>
-    </aside>
-  </div>
+    </div>
 
-  <div class="sticky-buttons">
-    <button id="btnCopy" class="btn ghost small sticky-button">Copy</button>
-    <button id="btnDownload" class="btn ghost small sticky-button">Download Log</button>
-    <button id="btnClear" class="btn ghost small sticky-button">Clear Terminal</button>
+    <div class="panel">
+      <div class="console-card">
+        <div class="header">
+          <div class="h">Live Console</div>
+          <div class="meta" id="status">Idle</div>
+        </div>
+        <div id="terminal" class="terminal" aria-live="polite"></div>
+        <div class="sticky-buttons">
+          <button id="btnCopy" class="btn ghost">Copy</button>
+          <button id="btnDownload" class="btn ghost">Download Log</button>
+          <button id="btnClear" class="btn ghost">Clear Terminal</button>
+          <button id="toggleAuto" class="btn toggle-auto">Stop Auto-Change</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div id="uiMiddlewareHistoryCard" class="history-card">
+        <div class="header">
+          <div class="h">UI + Middleware History</div>
+        </div>
+        <ul id="frHistory" class="history-list"></ul>
+      </div>
+
+      <div class="history-card">
+        <div class="header">
+          <div class="h">Corb Jobs History</div>
+        </div>
+        <ul id="cjHistory" class="history-list"></ul>
+      </div>
+
+      <div class="history-card">
+        <div class="header">
+          <div class="h">MARKLOGIC History</div>
+        </div>
+        <ul id="mlHistory" class="history-list"></ul>
+      </div>
+    </div>
   </div>
 
   <script>
-    // Configuration - UPDATE THIS TO YOUR ACTUAL SERVER
-    const SERVER = 'http://api.dashboard.dev-full.lifesciences-dev.casinternal:8080';
-    const COLOR_CHANGE_INTERVAL = 5000; // Configure auto-change interval (ms)
+    let currentMode = 'dev';
+    let SERVER = getServer(currentMode);
+    const uiMiddlewareCard = document.getElementById('uiMiddlewareCard');
+    const uiMiddlewareHistoryCard = document.getElementById('uiMiddlewareHistoryCard');
 
-    // Theme configuration
-    const themes = {
-      red: {
-        '--accent': '#ef4444',
-        '--neon-red': '#b91c1c',
-        '--glow': 'rgba(239, 68, 68, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(20, 25, 30, 0.7), rgba(50, 55, 60, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#ef4444'
-      },
-      black: {
-        '--accent': '#334155',
-        '--neon-red': '#1e293b',
-        '--glow': 'rgba(51, 65, 85, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(30, 30, 30, 0.7), rgba(60, 60, 60, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #0f0f0f 0%, #000000 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#334155'
-      },
-      purple: {
-        '--accent': '#7e22ce',
-        '--neon-red': '#5b21b6',
-        '--glow': 'rgba(126, 34, 206, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(30, 25, 40, 0.7), rgba(60, 55, 80, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #2e1a3e 0%, #0f071a 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#7e22ce'
-      },
-      blue: {
-        '--accent': '#1e40af',
-        '--neon-red': '#1e3a8a',
-        '--glow': 'rgba(30, 64, 175, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(25, 30, 40, 0.7), rgba(55, 60, 80, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #1a2e4e 0%, #0a0f2f 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#1e40af'
-      },
-      green: {
-        '--accent': '#15803d',
-        '--neon-red': '#166534',
-        '--glow': 'rgba(21, 128, 61, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(25, 35, 30, 0.7), rgba(55, 65, 60, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #1a2e1e 0%, #0a0f0a 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#15803d'
-      },
-      orange: {
-        '--accent': '#ea580c',
-        '--neon-red': '#c2410c',
-        '--glow': 'rgba(234, 88, 12, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(35, 30, 25, 0.7), rgba(65, 60, 55, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #3e2a1a 0%, #1a0f0a 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#ea580c'
-      },
-      cyan: {
-        '--accent': '#06b6d4',
-        '--neon-red': '#0891b2',
-        '--glow': 'rgba(6, 182, 212, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(20, 30, 35, 0.7), rgba(50, 60, 65, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #1a2e4e 0%, #0a1a2f 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#06b6d4'
-      },
-      pink: {
-        '--accent': '#ec4899',
-        '--neon-red': '#be185d',
-        '--glow': 'rgba(236, 72, 153, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(30, 25, 35, 0.7), rgba(60, 55, 65, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #2e1a3e 0%, #1a0a1f 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#ec4899'
-      },
-      yellow: {
-        '--accent': '#eab308',
-        '--neon-red': '#ca8a04',
-        '--glow': 'rgba(234, 179, 8, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(35, 30, 25, 0.7), rgba(65, 60, 55, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #3e2e1a 0%, #1a0f0a 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#eab308'
-      },
-      teal: {
-        '--accent': '#14b8a6',
-        '--neon-red': '#0d9488',
-        '--glow': 'rgba(20, 184, 166, 0.5)',
-        '--panel': 'linear-gradient(135deg, rgba(25, 35, 30, 0.7), rgba(55, 65, 60, 0.7))',
-        '--bg': 'radial-gradient(circle at center, #1a2e2e 0%, #0a1a1a 100%)',
-        '--success': '#22c55e',
-        '--warn': '#f59e0b',
-        '--err': '#14b8a6'
-      }
-    };
+    function getServer(mode) {
+      return `http://${mode === 'dev' ? 'api.dashboard.dev-full.lifesciences-dev.casinternal' : 'api.dashboard.ingestion.lifesciences-dev.casinternal'}:8080`;
+    }
 
-    // Apply theme
-    function applyTheme(themeName) {
-      const theme = themes[themeName];
-      for (const [key, value] of Object.entries(theme)) {
-        document.documentElement.style.setProperty(key, value);
+    function updateServerMeta() {
+      try {
+        document.querySelectorAll('.server-url').forEach(span => {
+          span.textContent = SERVER.substring(7);
+        });
+      } catch (e) {
+        console.error('Error updating server meta:', e);
+        appendLine('Error updating server meta: ' + e.message, 'stderr');
       }
     }
 
-    // Auto theme change
-    const themeNames = ['red', 'black', 'purple', 'blue', 'green', 'orange', 'cyan', 'pink', 'yellow', 'teal'];
-    let currentThemeIndex = 3; // Start with blue (index of blue in themeNames)
+    function toggleUIMiddlewareSections() {
+      try {
+        uiMiddlewareCard.style.display = currentMode === 'dev' ? 'flex' : 'none';
+        uiMiddlewareHistoryCard.style.display = currentMode === 'dev' ? 'flex' : 'none';
+      } catch (e) {
+        console.error('Error toggling UI sections:', e);
+        appendLine('Error toggling UI sections: ' + e.message, 'stderr');
+      }
+    }
+
+    document.getElementById('modeToggle').addEventListener('click', () => {
+      try {
+        currentMode = currentMode === 'dev' ? 'ingestion' : 'dev';
+        SERVER = getServer(currentMode);
+        updateServerMeta();
+        toggleUIMiddlewareSections();
+        // Clear history lists and inputs
+        document.getElementById('frHistory').innerHTML = '';
+        document.getElementById('cjHistory').innerHTML = '';
+        document.getElementById('mlHistory').innerHTML = '';
+        if (currentMode === 'dev') {
+          document.getElementById('frVersion').value = '';
+          document.getElementById('structureVersion').value = '';
+        }
+        document.getElementById('cjJobName').value = '';
+        // Clear console
+        terminal.innerHTML = '';
+        logBuffer = '';
+        statusEl.textContent = 'Idle';
+        statusEl.style.color = 'var(--muted)';
+        // Update button text
+        const toggleButton = document.getElementById('modeToggle');
+        toggleButton.textContent = currentMode === 'dev' ? 'DEV' : 'INGESTION';
+        // Fetch new data
+        fetchFRHistory();
+        fetchMLHistory();
+        fetchCJHistory();
+      } catch (e) {
+        console.error('Error switching mode:', e);
+        appendLine('Error switching mode: ' + e.message, 'stderr');
+      }
+    });
+
+    const COLOR_CHANGE_INTERVAL = 5000;
+    const RGB_EXTENDED_INTERVAL = 10000; // 5s regular + 5s for RGB
+
+    const themes = {
+      red: {
+        '--neon': '#ef4444',
+        '--neon-glow': 'rgba(239, 68, 68, 0.5)',
+        '--panel': 'rgba(20, 25, 30, 0.85)',
+        '--bg': '#0a0a1a',
+        '--success': '#10b981',
+        '--error': '#ef4444',
+        '--warn': '#f59e0b'
+      },
+      black: {
+        '--neon': '#334155',
+        '--neon-glow': 'rgba(51, 65, 85, 0.5)',
+        '--panel': 'rgba(30, 30, 30, 0.85)',
+        '--bg': '#0a0a0a',
+        '--success': '#10b981',
+        '--error': '#334155',
+        '--warn': '#f59e0b'
+      },
+      purple: {
+        '--neon': '#7e22ce',
+        '--neon-glow': 'rgba(126, 34, 206, 0.5)',
+        '--panel': 'rgba(30, 25, 40, 0.85)',
+        '--bg': '#1a0a1a',
+        '--success': '#10b981',
+        '--error': '#7e22ce',
+        '--warn': '#f59e0b'
+      },
+      blue: {
+        '--neon': '#1e40af',
+        '--neon-glow': 'rgba(30, 64, 175, 0.5)',
+        '--panel': 'rgba(25, 30, 40, 0.85)',
+        '--bg': '#0a0a2f',
+        '--success': '#10b981',
+        '--error': '#1e40af',
+        '--warn': '#f59e0b'
+      },
+      green: {
+        '--neon': '#15803d',
+        '--neon-glow': 'rgba(21, 128, 61, 0.5)',
+        '--panel': 'rgba(25, 35, 30, 0.85)',
+        '--bg': '#0a1a0a',
+        '--success': '#10b981',
+        '--error': '#15803d',
+        '--warn': '#f59e0b'
+      },
+      orange: {
+        '--neon': '#ea580c',
+        '--neon-glow': 'rgba(234, 88, 12, 0.5)',
+        '--panel': 'rgba(35, 30, 25, 0.85)',
+        '--bg': '#1a0f0a',
+        '--success': '#10b981',
+        '--error': '#ea580c',
+        '--warn': '#f59e0b'
+      },
+      cyan: {
+        '--neon': '#00ffea',
+        '--neon-glow': 'rgba(0, 255, 234, 0.5)',
+        '--panel': 'rgba(20, 20, 30, 0.85)',
+        '--bg': '#0a0a1a',
+        '--success': '#10b981',
+        '--error': '#00ffea',
+        '--warn': '#f59e0b'
+      },
+      pink: {
+        '--neon': '#ec4899',
+        '--neon-glow': 'rgba(236, 72, 153, 0.5)',
+        '--panel': 'rgba(30, 25, 35, 0.85)',
+        '--bg': '#1a0a1f',
+        '--success': '#10b981',
+        '--error': '#ec4899',
+        '--warn': '#f59e0b'
+      },
+      yellow: {
+        '--neon': '#eab308',
+        '--neon-glow': 'rgba(234, 179, 8, 0.5)',
+        '--panel': 'rgba(35, 30, 25, 0.85)',
+        '--bg': '#1a0f0a',
+        '--success': '#10b981',
+        '--error': '#eab308',
+        '--warn': '#f59e0b'
+      },
+      teal: {
+        '--neon': '#14b8a6',
+        '--neon-glow': 'rgba(20, 184, 166, 0.5)',
+        '--panel': 'rgba(25, 35, 30, 0.85)',
+        '--bg': '#0a1a1a',
+        '--success': '#10b981',
+        '--error': '#14b8a6',
+        '--warn': '#f59e0b'
+      },
+      rgb: {
+        '--neon': 'rgb(255, 0, 0)', // Initial color, will be updated dynamically
+        '--neon-glow': 'rgba(255, 0, 0, 0.5)', // Initial glow, will be updated
+        '--panel': 'rgba(20, 20, 30, 0.85)',
+        '--bg': '#0a0a1a',
+        '--success': '#10b981',
+        '--error': 'rgb(255, 0, 0)', // Initial error color, will be updated
+        '--warn': '#f59e0b'
+      }
+    };
+
+    const themeKeys = ['red', 'black', 'purple', 'blue', 'green', 'orange', 'cyan', 'pink', 'yellow', 'teal', 'rgb'];
+    let currentThemeIndex = 6; // Start with cyan
     let isAutoChangeEnabled = true;
     let autoThemeInterval = null;
+    let rgbPhase = 0;
+
+    function applyTheme(themeName) {
+      try {
+        if (themeName === 'rgb') {
+          const r = Math.sin(rgbPhase) * 127 + 128;
+          const g = Math.sin(rgbPhase + 2) * 127 + 128;
+          const b = Math.sin(rgbPhase + 4) * 127 + 128;
+          document.documentElement.style.setProperty('--neon', `rgb(${r}, ${g}, ${b})`);
+          document.documentElement.style.setProperty('--neon-glow', `rgba(${r}, ${g}, ${b}, 0.5)`);
+          document.documentElement.style.setProperty('--error', `rgb(${r}, ${g}, ${b})`);
+          document.documentElement.style.setProperty('--panel', themes.rgb['--panel']);
+          document.documentElement.style.setProperty('--bg', themes.rgb['--bg']);
+          document.documentElement.style.setProperty('--success', themes.rgb['--success']);
+          document.documentElement.style.setProperty('--warn', themes.rgb['--warn']);
+          rgbPhase += 0.1; // Increment phase for smooth color transition
+        } else {
+          const theme = themes[themeName];
+          for (const [key, value] of Object.entries(theme)) {
+            document.documentElement.style.setProperty(key, value);
+          }
+        }
+      } catch (e) {
+        console.error('Error applying theme:', e);
+        appendLine('Error applying theme: ' + e.message, 'stderr');
+      }
+    }
 
     function startAutoThemeChange() {
       if (!isAutoChangeEnabled) return;
+      stopAutoThemeChange();
       autoThemeInterval = setInterval(() => {
-        currentThemeIndex = (currentThemeIndex + 1) % themeNames.length;
-        applyTheme(themeNames[currentThemeIndex]);
+        try {
+          const currentTheme = themeKeys[currentThemeIndex];
+          applyTheme(currentTheme);
+          const nextTheme = themeKeys[(currentThemeIndex + 1) % themeKeys.length];
+          currentThemeIndex = (currentThemeIndex + 1) % themeKeys.length;
+          // Adjust interval: 10s (5s + 5s) for RGB, 5s for others
+          const interval = currentTheme === 'rgb' ? RGB_EXTENDED_INTERVAL : COLOR_CHANGE_INTERVAL;
+          stopAutoThemeChange();
+          autoThemeInterval = setInterval(startAutoThemeChange, interval);
+        } catch (e) {
+          console.error('Error in theme change:', e);
+          appendLine('Error in theme change: ' + e.message, 'stderr');
+        }
       }, COLOR_CHANGE_INTERVAL);
     }
 
@@ -716,184 +766,244 @@
       }
     }
 
-    // Toggle auto-change
     document.getElementById('toggleAuto').addEventListener('click', () => {
-      isAutoChangeEnabled = !isAutoChangeEnabled;
-      const toggleButton = document.getElementById('toggleAuto');
-      toggleButton.textContent = isAutoChangeEnabled ? 'Stop Auto-Change' : 'Start Auto-Change';
-      toggleButton.style.background = isAutoChangeEnabled
-        ? 'linear-gradient(90deg, var(--accent), var(--neon-red))'
-        : 'rgba(255, 255, 255, 0.1)';
-      toggleButton.style.color = isAutoChangeEnabled ? 'white' : 'var(--muted)';
-      if (isAutoChangeEnabled) {
-        startAutoThemeChange();
-      } else {
-        stopAutoThemeChange();
+      try {
+        isAutoChangeEnabled = !isAutoChangeEnabled;
+        const toggleButton = document.getElementById('toggleAuto');
+        toggleButton.textContent = isAutoChangeEnabled ? 'Stop Auto-Change' : 'Start Auto-Change';
+        toggleButton.style.background = isAutoChangeEnabled ? 'var(--neon)' : 'rgba(255, 255, 255, 0.1)';
+        toggleButton.style.color = isAutoChangeEnabled ? '#000' : 'var(--muted)';
+        if (isAutoChangeEnabled) {
+          startAutoThemeChange();
+        } else {
+          stopAutoThemeChange();
+        }
+      } catch (e) {
+        console.error('Error toggling auto theme:', e);
+        appendLine('Error toggling auto theme: ' + e.message, 'stderr');
       }
     });
 
-    // Start auto theme change on load
     startAutoThemeChange();
 
-    // State
     const terminal = document.getElementById('terminal');
     const statusEl = document.getElementById('status');
+    const loadingOverlay = document.getElementById('loading-overlay');
     let lastIndex = 0;
-    let xhrFR = null, xhrML = null;
+    let xhrFR = null, xhrML = null, xhrCJ = null;
     let logBuffer = '';
     let isDeploying = false;
 
-    function appendLine(text, kind='stdout'){
-      const parts = text.replace(/\r/g,'').split(/\n/);
-      parts.forEach((p, idx) => {
-        if(!p) return;
-        const ts = new Date().toLocaleTimeString();
-        const line = document.createElement('div');
-        line.className = 'line ' + (kind==='stderr' ? 'stderr' : kind==='warn' ? 'warn' : kind==='info' ? 'info' : 'stdout');
-        line.setAttribute('data-new', 'true');
-        line.innerHTML = '<span class="ts">['+ts+']</span>' + escapeHtml(p);
-        terminal.appendChild(line);
-        logBuffer += '['+ts+'] ' + p + '\n';
-        // Auto-scroll to bottom if user is near the bottom
-        const isNearBottom = terminal.scrollTop + terminal.clientHeight >= terminal.scrollHeight - 50; // 50px threshold
-        if (isNearBottom) {
-          terminal.scrollTop = terminal.scrollHeight;
-        }
-        // Remove data-new after animation
-        setTimeout(() => line.removeAttribute('data-new'), 300);
-      });
+    function appendLine(text, kind='stdout') {
+      try {
+        const parts = text.replace(/\r/g,'').split(/\n/);
+        parts.forEach((p, idx) => {
+          if (!p) return;
+          const ts = new Date().toLocaleTimeString();
+          const line = document.createElement('div');
+          line.className = 'line ' + (kind === 'stderr' ? 'stderr' : kind === 'warn' ? 'warn' : kind === 'info' ? 'info' : 'stdout');
+          line.innerHTML = '<span class="ts">[' + ts + ']</span>' + escapeHtml(p);
+          terminal.appendChild(line);
+          logBuffer += '[' + ts + '] ' + p + '\n';
+          const isNearBottom = terminal.scrollTop + terminal.clientHeight >= terminal.scrollHeight - 50;
+          if (isNearBottom) {
+            terminal.scrollTop = terminal.scrollHeight;
+          }
+        });
+      } catch (e) {
+        console.error('Error appending line:', e);
+      }
     }
 
-    function escapeHtml(s){
-      return s.replace(/[&<>\"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]});
+    function escapeHtml(s) {
+      return s.replace(/[&<>\"']/g, function(c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; });
     }
 
-    function processChunk(chunk){
-      const lines = chunk.split(/\r?\n/);
-      lines.forEach(l => {
-        if(!l) return;
-        if(/error/i.test(l) || /traceback/i.test(l) || /failed/i.test(l)) appendLine(l,'stderr');
-        else if(/warn/i.test(l)) appendLine(l,'warn');
-        else if(/info/i.test(l)) appendLine(l,'info');
-        else appendLine(l,'stdout');
-      });
+    function processChunk(chunk) {
+      try {
+        const lines = chunk.split(/\r?\n/);
+        lines.forEach(l => {
+          if (!l) return;
+          if (/error/i.test(l) || /traceback/i.test(l) || /failed/i.test(l)) appendLine(l, 'stderr');
+          else if (/warn/i.test(l)) appendLine(l, 'warn');
+          else if (/info/i.test(l)) appendLine(l, 'info');
+          else appendLine(l, 'stdout');
+        });
+      } catch (e) {
+        console.error('Error processing chunk:', e);
+        appendLine('Error processing chunk: ' + e.message, 'stderr');
+      }
     }
 
     function setButtonState(buttonId, isLoading, isAbort = false) {
-      const btn = document.getElementById(buttonId);
-      const otherDeployBtn = buttonId === 'btnDeployFR' ? document.getElementById('btnDeployML') : document.getElementById('btnDeployFR');
-      if (isLoading) {
-        btn.disabled = true;
-        btn.innerHTML = isLoading ? 
-          '<span class="spinner"></span> ' + (isAbort ? 'Aborting...' : 'Deploying...') : 
-          btn.textContent;
-        otherDeployBtn.disabled = true;
-      } else {
-        btn.disabled = false;
-        btn.innerHTML = isAbort ? 'Abort' : (buttonId === 'btnDeployFR' ? 'Deploy UI + Middleware' : 'Deploy MARKLOGIC');
-        if (!isDeploying) {
-          otherDeployBtn.disabled = false;
+      try {
+        const btn = document.getElementById(buttonId);
+        const otherDeployBtns = [
+          document.getElementById('btnDeployFR'),
+          document.getElementById('btnDeployML'),
+          document.getElementById('btnRunCJ')
+        ].filter(b => b && b.id !== buttonId);
+        if (isLoading) {
+          btn.disabled = true;
+          btn.innerHTML = isLoading ? 
+            '<span class="spinner"></span> ' + (isAbort ? 'Aborting...' : (buttonId === 'btnRunCJ' ? 'Running...' : 'Deploying...')) : 
+            btn.textContent;
+          otherDeployBtns.forEach(b => b.disabled = true);
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = isAbort ? 'Abort' : 
+            (buttonId === 'btnDeployFR' ? 'Deploy' : 
+             buttonId === 'btnDeployML' ? 'Deploy' : 'Run');
+          if (!isDeploying) {
+            otherDeployBtns.forEach(b => b.disabled = false);
+          }
         }
+      } catch (e) {
+        console.error('Error setting button state:', e);
+        appendLine('Error setting button state: ' + e.message, 'stderr');
       }
     }
 
-    function startStream(url, onDone, assignXhr){
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.timeout = 0;
-      xhr.onreadystatechange = function(){
-        if(xhr.readyState === 2){ 
-          statusEl.textContent = 'Connected'; 
-          statusEl.style.color = 'var(--success)';
-        }
-        if(xhr.readyState === 4){
-          if(xhr.status >= 400) {
-            statusEl.textContent = 'Failed (' + xhr.status + ')';
-            statusEl.style.color = 'var(--err)';
-            appendLine('HTTP ' + xhr.status + ' returned from server', 'stderr');
-          } else {
-            statusEl.textContent = 'Complete (' + xhr.status + ')';
-            statusEl.style.color = 'var(--success)';
+    function startStream(url, onDone, assignXhr) {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.timeout = 0;
+        xhr.onreadystatechange = function() {
+          try {
+            if (xhr.readyState === 2) { 
+              statusEl.textContent = 'Connected'; 
+              statusEl.style.color = 'var(--success)';
+            }
+            if (xhr.readyState === 4) {
+              if (xhr.status >= 400) {
+                statusEl.textContent = 'Failed (' + xhr.status + ')';
+                statusEl.style.color = 'var(--error)';
+                appendLine('HTTP ' + xhr.status + ' returned from server', 'stderr');
+              } else {
+                statusEl.textContent = 'Complete (' + xhr.status + ')';
+                statusEl.style.color = 'var(--success)';
+              }
+              isDeploying = false;
+              if (onDone) onDone(xhr);
+            }
+          } catch (e) {
+            console.error('Error in stream state change:', e);
+            appendLine('Error in stream state change: ' + e.message, 'stderr');
           }
+        };
+
+        let lastLen = 0;
+        xhr.onprogress = function() {
+          try {
+            const text = xhr.responseText.substring(lastLen);
+            lastLen = xhr.responseText.length;
+            if (text) processChunk(text);
+          } catch (e) {
+            console.error('Error in stream progress:', e);
+            appendLine('Error in stream progress: ' + e.message, 'stderr');
+          }
+        };
+
+        xhr.onerror = function() { 
+          statusEl.textContent = 'Network Error'; 
+          statusEl.style.color = 'var(--error)';
+          appendLine('Network error while streaming', 'stderr'); 
           isDeploying = false;
-          if(onDone) onDone(xhr);
-        }
-      };
+        };
+        
+        xhr.ontimeout = function() { 
+          statusEl.textContent = 'Timeout'; 
+          statusEl.style.color = 'var(--error)';
+          appendLine('Streaming timed out', 'stderr'); 
+          isDeploying = false;
+        };
 
-      let lastLen = 0;
-      xhr.onprogress = function(){
-        const text = xhr.responseText.substring(lastLen);
-        lastLen = xhr.responseText.length;
-        if(text) processChunk(text);
-      };
-
-      xhr.onerror = function(){ 
-        statusEl.textContent = 'Network Error'; 
-        statusEl.style.color = 'var(--err)';
-        appendLine('Network error while streaming', 'stderr'); 
-        isDeploying = false;
-      };
-      
-      xhr.ontimeout = function(){ 
-        statusEl.textContent = 'Timeout'; 
-        statusEl.style.color = 'var(--err)';
-        appendLine('Streaming timed out', 'stderr'); 
-        isDeploying = false;
-      };
-
-      xhr.send();
-      assignXhr(xhr);
+        xhr.send();
+        assignXhr(xhr);
+      } catch (e) {
+        console.error('Error starting stream:', e);
+        appendLine('Error starting stream: ' + e.message, 'stderr');
+      }
     }
 
     function validateInputs() {
-      const fr = document.getElementById('frVersion').value.trim();
-      const ss = document.getElementById('structureVersion').value.trim();
-      
-      if(!fr) {
-        appendLine('UI and Middleware version is required', 'stderr');
+      try {
+        const fr = document.getElementById('frVersion').value.trim();
+        const ss = document.getElementById('structureVersion').value.trim();
+        
+        if (!fr) {
+          appendLine('UI and Middleware version is required', 'stderr');
+          return false;
+        }
+        
+        if (!ss) {
+          appendLine('Structure Search version is required', 'stderr');
+          return false;
+        }
+        
+        return true;
+      } catch (e) {
+        console.error('Error validating inputs:', e);
+        appendLine('Error validating inputs: ' + e.message, 'stderr');
         return false;
       }
-      
-      if(!ss) {
-        appendLine('Structure Search version is required', 'stderr');
+    }
+
+    function validateCJInput() {
+      try {
+        const jobName = document.getElementById('cjJobName').value.trim();
+        if (!jobName) {
+          appendLine('Job Name is required', 'stderr');
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error('Error validating CJ input:', e);
+        appendLine('Error validating CJ input: ' + e.message, 'stderr');
         return false;
       }
-      
-      return true;
     }
 
     function fetchFRHistory() {
+      if (currentMode !== 'dev') {
+        document.getElementById('frHistory').innerHTML = '';
+        return;
+      }
       fetch(`${SERVER}/api/v1/history/fr`)
         .then(res => res.json())
         .then(data => {
-          const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 10);
-          const ul = document.getElementById('frHistory');
-          ul.innerHTML = '';
-          if (sorted.length > 0) {
-            // Prepopulate input fields with the latest build's versions
-            const latest = sorted[0];
-            document.getElementById('frVersion').value = latest['fr-version'] || '';
-            document.getElementById('structureVersion').value = latest['structure-search-version'] || '';
+          try {
+            const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            const ul = document.getElementById('frHistory');
+            ul.innerHTML = '';
+            if (sorted.length > 0) {
+              const latest = sorted[0];
+              document.getElementById('frVersion').value = latest['fr-version'] || '';
+              document.getElementById('structureVersion').value = latest['structure-search-version'] || '';
+            }
+            sorted.forEach(item => {
+              const date = new Date(item.datetime).toLocaleDateString();
+              const time = new Date(item.datetime).toLocaleTimeString();
+              const statusClass = item.status === 'pass' ? 'pass' : item.status === 'fail' ? 'fail' : 'unknown';
+              const li = document.createElement('li');
+              li.innerHTML = `
+                <div class="history-item">
+                  <span class="status-indicator ${statusClass}"></span>
+                  <span class="build-id">${escapeHtml(item.buildId)}</span>
+                  <span class="datetime">${date} ${time}</span>
+                  <span>UI: ${escapeHtml(item['fr-version'] || 'N/A')}</span>
+                  <span>SS: ${escapeHtml(item['structure-search-version'] || 'N/A')}</span>
+                </div>
+              `;
+              li.style.cursor = 'pointer';
+              li.onclick = () => viewLogs('fr', item.buildId);
+              ul.appendChild(li);
+            });
+          } catch (e) {
+            console.error('Error processing FR history:', e);
+            appendLine('Error processing FR history: ' + e.message, 'stderr');
           }
-          sorted.forEach(item => {
-            const date = new Date(item.datetime).toLocaleDateString();
-            const time = new Date(item.datetime).toLocaleTimeString();
-            const li = document.createElement('li');
-            li.setAttribute('status', item.status);
-            li.setAttribute('data-new', 'true');
-            li.innerHTML = `
-              <div class="history-item">
-                <span class="datetime">${date} ${time}</span>
-                <span class="build-id">${escapeHtml(item.buildId)}</span>
-                <span>UI and Middleware Version: ${escapeHtml(item['fr-version'] || 'N/A')}</span>
-                <span>Structure Search Version: ${escapeHtml(item['structure-search-version'] || 'N/A')}</span>
-              </div>
-            `;
-            li.style.cursor = 'pointer';
-            li.onclick = () => viewLogs('fr', item.buildId);
-            ul.appendChild(li);
-            setTimeout(() => li.removeAttribute('data-new'), 300);
-          });
         })
         .catch(err => appendLine('Error fetching UI and Middleware history: ' + err.message, 'stderr'));
     }
@@ -902,170 +1012,320 @@
       fetch(`${SERVER}/api/v1/history/ml`)
         .then(res => res.json())
         .then(data => {
-          const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 10);
-          const ul = document.getElementById('mlHistory');
-          ul.innerHTML = '';
-          sorted.forEach(item => {
-            const date = new Date(item.datetime).toLocaleDateString();
-            const time = new Date(item.datetime).toLocaleTimeString();
-            const li = document.createElement('li');
-            li.setAttribute('status', item.status);
-            li.setAttribute('data-new', 'true');
-            li.innerHTML = `
-              <div class="history-item">
-                <span class="build-id">${escapeHtml(item.buildId)}</span>
-                <span>${date} - ${time}</span>
-              </div>
-            `;
-            li.style.cursor = 'pointer';
-            li.onclick = () => viewLogs('ml', item.buildId);
-            ul.appendChild(li);
-            setTimeout(() => li.removeAttribute('data-new'), 300);
-          });
+          try {
+            const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            const ul = document.getElementById('mlHistory');
+            ul.innerHTML = '';
+            sorted.forEach(item => {
+              const date = new Date(item.datetime).toLocaleDateString();
+              const time = new Date(item.datetime).toLocaleTimeString();
+              const statusClass = item.status === 'pass' ? 'pass' : item.status === 'fail' ? 'fail' : 'unknown';
+              const li = document.createElement('li');
+              li.innerHTML = `
+                <div class="history-item">
+                  <span class="status-indicator ${statusClass}"></span>
+                  <span class="build-id">${escapeHtml(item.buildId)}</span>
+                  <span class="datetime">${date} ${time}</span>
+                </div>
+              `;
+              li.style.cursor = 'pointer';
+              li.onclick = () => viewLogs('ml', item.buildId);
+              ul.appendChild(li);
+            });
+          } catch (e) {
+            console.error('Error processing ML history:', e);
+            appendLine('Error processing ML history: ' + e.message, 'stderr');
+          }
         })
         .catch(err => appendLine('Error fetching MARKLOGIC history: ' + err.message, 'stderr'));
     }
 
-    function viewLogs(type, buildId) {
-      terminal.innerHTML = '';
-      logBuffer = '';
-      statusEl.textContent = `Viewing ${type.toUpperCase()} Build ${buildId} Logs`;
-      statusEl.style.color = 'var(--muted)';
-      fetch(`${SERVER}/api/v1/history/${type}?buildId=${buildId}`)
+    function fetchCJHistory() {
+      fetch(`${SERVER}/api/v1/history/cj`)
         .then(res => res.json())
         .then(data => {
-          if (data && data.output_log) {
-            processChunk(data.output_log);
-          } else {
-            appendLine('No output log available for this build', 'warn');
+          try {
+            const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            const ul = document.getElementById('cjHistory');
+            ul.innerHTML = '';
+            if (sorted.length > 0) {
+              const latest = sorted[0];
+              document.getElementById('cjJobName').value = latest['jobName'] || '';
+            }
+            sorted.forEach(item => {
+              const date = new Date(item.datetime).toLocaleDateString();
+              const time = new Date(item.datetime).toLocaleTimeString();
+              const statusClass = item.status === 'pass' ? 'pass' : item.status === 'fail' ? 'fail' : 'unknown';
+              const li = document.createElement('li');
+              li.innerHTML = `
+                <div class="history-item">
+                  <span class="status-indicator ${statusClass}"></span>
+                  <span class="build-id">${escapeHtml(item.buildId)}</span>
+                  <span class="datetime">${date} ${time}</span>
+                  <span>Job: ${escapeHtml(item['jobName'] || 'N/A')}</span>
+                </div>
+              `;
+              li.style.cursor = 'pointer';
+              li.onclick = () => viewLogs('cj', item.buildId);
+              ul.appendChild(li);
+            });
+          } catch (e) {
+            console.error('Error processing CJ history:', e);
+            appendLine('Error processing CJ history: ' + e.message, 'stderr');
           }
         })
-        .catch(err => appendLine('Error fetching logs: ' + err.message, 'stderr'));
+        .catch(err => appendLine('Error fetching Corb Jobs history: ' + err.message, 'stderr'));
     }
 
-    // Deploy FR
-    document.getElementById('btnDeployFR').addEventListener('click', ()=>{
-      if (isDeploying) {
-        appendLine('Cannot start UI and Middleware deployment: another deployment is in progress', 'warn');
-        return;
+    function viewLogs(type, buildId) {
+      try {
+        terminal.innerHTML = '';
+        logBuffer = '';
+        statusEl.textContent = `Viewing ${type.toUpperCase()} Build ${buildId} Logs`;
+        statusEl.style.color = 'var(--muted)';
+        loadingOverlay.classList.add('show');
+        fetch(`${SERVER}/api/v1/history/${type}?buildId=${buildId}`)
+          .then(res => res.json())
+          .then(data => {
+            loadingOverlay.classList.remove('show');
+            if (data && data.output_log) {
+              processChunk(data.output_log);
+            } else {
+              appendLine('No output log available for this build', 'warn');
+            }
+          })
+          .catch(err => {
+            loadingOverlay.classList.remove('show');
+            appendLine('Error fetching logs: ' + err.message, 'stderr');
+          });
+      } catch (e) {
+        console.error('Error viewing logs:', e);
+        appendLine('Error viewing logs: ' + e.message, 'stderr');
       }
-      if (!validateInputs()) return;
-      
-      const fr = encodeURIComponent(document.getElementById('frVersion').value.trim());
-      const ss = encodeURIComponent(document.getElementById('structureVersion').value.trim());
-      
-      terminal.innerHTML = '';
-      logBuffer = '';
-      lastIndex = 0;
-      statusEl.textContent = 'Starting UI and Middleware deploy...';
-      statusEl.style.color = 'var(--warn)';
-      
-      isDeploying = true;
-      setButtonState('btnDeployFR', true);
-      setButtonState('btnAbortFR', false, true);
-      
-      const url = `${SERVER}/api/v1/deploy/fr?fr-version=${fr}&structure-search-version=${ss}`;
-      startStream(url, (xhr)=>{ 
-        xhrFR = null; 
-        setButtonState('btnDeployFR', false);
-        setButtonState('btnAbortFR', false, true);
-        fetchFRHistory(); // Refresh history to update input fields
-      }, (x)=>{ xhrFR = x; });
-    });
+    }
 
-    document.getElementById('btnAbortFR').addEventListener('click', ()=>{
-      if(xhrFR){ 
-        setButtonState('btnAbortFR', true, true);
-        xhrFR.abort(); 
-        appendLine('UI and Middleware deploy aborted by user', 'warn'); 
-        statusEl.textContent='Aborted'; 
+    document.getElementById('btnDeployFR').addEventListener('click', () => {
+      try {
+        if (isDeploying) {
+          appendLine('Cannot start UI and Middleware deployment: another deployment is in progress', 'warn');
+          return;
+        }
+        if (!validateInputs()) return;
+        
+        const fr = encodeURIComponent(document.getElementById('frVersion').value.trim());
+        const ss = encodeURIComponent(document.getElementById('structureVersion').value.trim());
+        
+        terminal.innerHTML = '';
+        logBuffer = '';
+        lastIndex = 0;
+        statusEl.textContent = 'Starting UI and Middleware deploy...';
         statusEl.style.color = 'var(--warn)';
-        xhrFR=null; 
-        isDeploying = false;
-        setButtonState('btnDeployFR', false);
+        
+        isDeploying = true;
+        setButtonState('btnDeployFR', true);
         setButtonState('btnAbortFR', false, true);
-        fetchFRHistory(); // Refresh history to ensure input fields are updated
+        
+        const url = `${SERVER}/api/v1/deploy/fr?fr-version=${fr}&structure-search-version=${ss}`;
+        startStream(url, (xhr) => { 
+          xhrFR = null; 
+          setButtonState('btnDeployFR', false);
+          setButtonState('btnAbortFR', false, true);
+          fetchFRHistory();
+        }, (x) => { xhrFR = x; });
+      } catch (e) {
+        console.error('Error deploying FR:', e);
+        appendLine('Error deploying FR: ' + e.message, 'stderr');
       }
-      else appendLine('No UI and Middleware deploy in progress', 'warn');
     });
 
-    // Deploy ML
-    document.getElementById('btnDeployML').addEventListener('click', ()=>{
-      if (isDeploying) {
-        appendLine('Cannot start MARKLOGIC deployment: another deployment is in progress', 'warn');
-        return;
+    document.getElementById('btnAbortFR').addEventListener('click', () => {
+      try {
+        if (xhrFR) { 
+          setButtonState('btnAbortFR', true, true);
+          xhrFR.abort(); 
+          appendLine('UI and Middleware deploy aborted by user', 'warn'); 
+          statusEl.textContent = 'Aborted'; 
+          statusEl.style.color = 'var(--warn)';
+          xhrFR = null; 
+          isDeploying = false;
+          setButtonState('btnDeployFR', false);
+          setButtonState('btnAbortFR', false, true);
+          fetchFRHistory();
+        } else {
+          appendLine('No UI and Middleware deploy in progress', 'warn');
+        }
+      } catch (e) {
+        console.error('Error aborting FR:', e);
+        appendLine('Error aborting FR: ' + e.message, 'stderr');
       }
-      terminal.innerHTML = '';
-      logBuffer = '';
-      statusEl.textContent = 'Starting MARKLOGIC deploy...';
-      statusEl.style.color = 'var(--warn)';
-      
-      isDeploying = true;
-      setButtonState('btnDeployML', true);
-      setButtonState('btnAbortML', false, true);
-      
-      const url = `${SERVER}/api/v1/deploy/ml`;
-      startStream(url, (xhr)=>{ 
-        xhrML = null; 
-        setButtonState('btnDeployML', false);
-        setButtonState('btnAbortML', false, true);
-        fetchMLHistory();
-      }, (x)=>{ xhrML = x; });
     });
 
-    document.getElementById('btnAbortML').addEventListener('click', ()=>{
-      if(xhrML){ 
-        setButtonState('btnAbortML', true, true);
-        xhrML.abort(); 
-        appendLine('MARKLOGIC deploy aborted by user', 'warn'); 
-        statusEl.textContent='Aborted';
+    document.getElementById('btnDeployML').addEventListener('click', () => {
+      try {
+        if (isDeploying) {
+          appendLine('Cannot start MARKLOGIC deployment: another deployment is in progress', 'warn');
+          return;
+        }
+        terminal.innerHTML = '';
+        logBuffer = '';
+        statusEl.textContent = 'Starting MARKLOGIC deploy...';
         statusEl.style.color = 'var(--warn)';
-        xhrML=null; 
-        isDeploying = false;
-        setButtonState('btnDeployML', false);
+        
+        isDeploying = true;
+        setButtonState('btnDeployML', true);
         setButtonState('btnAbortML', false, true);
-        fetchMLHistory();
+        
+        const url = `${SERVER}/api/v1/deploy/ml`;
+        startStream(url, (xhr) => { 
+          xhrML = null; 
+          setButtonState('btnDeployML', false);
+          setButtonState('btnAbortML', false, true);
+          fetchMLHistory();
+        }, (x) => { xhrML = x; });
+      } catch (e) {
+        console.error('Error deploying ML:', e);
+        appendLine('Error deploying ML: ' + e.message, 'stderr');
       }
-      else appendLine('No MARKLOGIC deploy in progress', 'warn');
     });
 
-    // Copy and download logs
-    document.getElementById('btnCopy').addEventListener('click', async ()=>{
-      try{ 
-        await navigator.clipboard.writeText(logBuffer||terminal.innerText); 
+    document.getElementById('btnAbortML').addEventListener('click', () => {
+      try {
+        if (xhrML) { 
+          setButtonState('btnAbortML', true, true);
+          xhrML.abort(); 
+          appendLine('MARKLOGIC deploy aborted by user', 'warn'); 
+          statusEl.textContent = 'Aborted';
+          statusEl.style.color = 'var(--warn)';
+          xhrML = null; 
+          isDeploying = false;
+          setButtonState('btnDeployML', false);
+          setButtonState('btnAbortML', false, true);
+          fetchMLHistory();
+        } else {
+          appendLine('No MARKLOGIC deploy in progress', 'warn');
+        }
+      } catch (e) {
+        console.error('Error aborting ML:', e);
+        appendLine('Error aborting ML: ' + e.message, 'stderr');
+      }
+    });
+
+    document.getElementById('btnRunCJ').addEventListener('click', () => {
+      try {
+        if (isDeploying) {
+          appendLine('Cannot start Corb Jobs run: another deployment is in progress', 'warn');
+          return;
+        }
+        if (!validateCJInput()) return;
+        
+        const jobName = encodeURIComponent(document.getElementById('cjJobName').value.trim());
+        
+        terminal.innerHTML = '';
+        logBuffer = '';
+        lastIndex = 0;
+        statusEl.textContent = 'Starting Corb Jobs run...';
+        statusEl.style.color = 'var(--warn)';
+        
+        isDeploying = true;
+        setButtonState('btnRunCJ', true);
+        setButtonState('btnAbortCJ', false, true);
+        
+        const url = `${SERVER}/api/v1/run/cj?job-name=${jobName}`;
+        startStream(url, (xhr) => { 
+          xhrCJ = null; 
+          setButtonState('btnRunCJ', false);
+          setButtonState('btnAbortCJ', false, true);
+          fetchCJHistory();
+        }, (x) => { xhrCJ = x; });
+      } catch (e) {
+        console.error('Error running CJ:', e);
+        appendLine('Error running CJ: ' + e.message, 'stderr');
+      }
+    });
+
+    document.getElementById('btnAbortCJ').addEventListener('click', () => {
+      try {
+        if (xhrCJ) { 
+          setButtonState('btnAbortCJ', true, true);
+          xhrCJ.abort(); 
+          appendLine('Corb Jobs run aborted by user', 'warn'); 
+          statusEl.textContent = 'Aborted';
+          statusEl.style.color = 'var(--warn)';
+          xhrCJ = null; 
+          isDeploying = false;
+          setButtonState('btnRunCJ', false);
+          setButtonState('btnAbortCJ', false, true);
+          fetchCJHistory();
+        } else {
+          appendLine('No Corb Jobs run in progress', 'warn');
+        }
+      } catch (e) {
+        console.error('Error aborting CJ:', e);
+        appendLine('Error aborting CJ: ' + e.message, 'stderr');
+      }
+    });
+
+    document.getElementById('btnCopy').addEventListener('click', async () => {
+      try { 
+        await navigator.clipboard.writeText(logBuffer || terminal.innerText); 
         appendLine('Log copied to clipboard', 'info'); 
+      } catch (e) { 
+        console.error('Error copying log:', e);
+        appendLine('Copy failed: ' + e.message, 'stderr'); 
       }
-      catch(e){ appendLine('Copy failed: ' + e.message, 'stderr'); }
     });
 
-    document.getElementById('btnDownload').addEventListener('click', ()=>{
-      const blob = new Blob([logBuffer||terminal.innerText], {type:'text/plain;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `deploy-log-${Date.now()}.txt`;
-      document.body.appendChild(a); a.click(); a.remove();
-      appendLine('Log downloaded', 'info');
+    document.getElementById('btnDownload').addEventListener('click', () => {
+      try {
+        const blob = new Blob([logBuffer || terminal.innerText], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `deploy-log-${Date.now()}.txt`;
+        document.body.appendChild(a); 
+        a.click(); 
+        a.remove();
+        appendLine('Log downloaded', 'info');
+      } catch (e) {
+        console.error('Error downloading log:', e);
+        appendLine('Error downloading log: ' + e.message, 'stderr');
+      }
     });
 
-    document.getElementById('btnClear').addEventListener('click', ()=>{ 
-      terminal.innerHTML=''; 
-      logBuffer=''; 
-      appendLine('Terminal cleared', 'info'); 
+    document.getElementById('btnClear').addEventListener('click', () => { 
+      try {
+        terminal.innerHTML = ''; 
+        logBuffer = ''; 
+        appendLine('Terminal cleared', 'info'); 
+        loadingOverlay.classList.remove('show');
+      } catch (e) {
+        console.error('Error clearing terminal:', e);
+        appendLine('Error clearing terminal: ' + e.message, 'stderr');
+      }
     });
 
-    // On page unload, abort any streaming xhr and stop auto theme change
-    window.addEventListener('beforeunload', ()=>{ 
-      if(xhrFR) xhrFR.abort(); 
-      if(xhrML) xhrML.abort(); 
-      stopAutoThemeChange();
+    window.addEventListener('beforeunload', () => { 
+      try {
+        if (xhrFR) xhrFR.abort(); 
+        if (xhrML) xhrML.abort(); 
+        if (xhrCJ) xhrCJ.abort(); 
+        stopAutoThemeChange();
+      } catch (e) {
+        console.error('Error on beforeunload:', e);
+      }
     });
 
-    // Initial fetch history
-    fetchFRHistory();
-    fetchMLHistory();
-
-    // Initialize default theme
-    applyTheme('blue');
+    // Initial setup
+    try {
+      updateServerMeta();
+      toggleUIMiddlewareSections();
+      fetchFRHistory();
+      fetchMLHistory();
+      fetchCJHistory();
+      applyTheme('cyan');
+    } catch (e) {
+      console.error('Error during initial setup:', e);
+      appendLine('Error during initial setup: ' + e.message, 'stderr');
+    }
   </script>
 </body>
 </html>
