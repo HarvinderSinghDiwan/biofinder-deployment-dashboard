@@ -1,6 +1,5 @@
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
-from time import sleep
 import subprocess
 import threading
 import psycopg2
@@ -9,6 +8,9 @@ import os
 import redis
 import time
 import uuid
+import signal
+import psutil
+import queue
 
 repo_name = "ls-prime"
 marklogic_path = "ls-prime/marklogic"
@@ -23,15 +25,15 @@ REDIS_PORT = 6379
 REDIS_DB = 0
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
 
-# Database configuration (use environment variables for security)
+# Database configuration
 DB_HOST = os.getenv('DB_HOST', 'postgres.agentic-ai.lifesciences-dev.casinternal')
 DB_NAME = os.getenv('DB_NAME', 'deploymentdashboard')
 DB_USER = os.getenv('DB_USER', 'postgres')
 DB_PASS = os.getenv('DB_PASS', 'postgres')
 
 # Lock settings
-LOCK_TIMEOUT = 300  # Short timeout (30 seconds) to detect crashed servers
-HEARTBEAT_INTERVAL = 5  # Heartbeat every 5 seconds
+LOCK_TIMEOUT = 300  # 5 minutes timeout
+HEARTBEAT_INTERVAL = 0.1  # 100ms for immediate abort detection
 SERVER_ID = str(uuid.uuid4())  # Unique server identifier
 
 def create_tables():
@@ -45,7 +47,8 @@ def create_tables():
             output_log TEXT,
             status BOOLEAN,
             fr_version VARCHAR(50),
-            structure_search_version VARCHAR(50)
+            structure_search_version VARCHAR(50),
+            aborted BOOLEAN DEFAULT FALSE
         )
     """)
     cur.execute("""
@@ -53,7 +56,8 @@ def create_tables():
             build_id INTEGER PRIMARY KEY,
             deploy_datetime TIMESTAMP,
             output_log TEXT,
-            status BOOLEAN
+            status BOOLEAN,
+            aborted BOOLEAN DEFAULT FALSE
         )
     """)
     cur.execute("""
@@ -62,7 +66,8 @@ def create_tables():
             deploy_datetime TIMESTAMP,
             output_log TEXT,
             status BOOLEAN,
-            job_name VARCHAR(100)
+            job_name VARCHAR(100),
+            aborted BOOLEAN DEFAULT FALSE
         )
     """)
     conn.commit()
@@ -99,75 +104,157 @@ def get_next_cj_build_id():
     conn.close()
     return 1 if max_id is None else max_id + 1
 
-def insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version):
+def insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, aborted=False):
     """Insert frontend deployment log into the database."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
-    cur.execute("INSERT INTO deploy_fr_history (build_id, deploy_datetime, output_log, status, fr_version, structure_search_version) VALUES (%s, %s, %s, %s, %s, %s)", 
-                (build_id, dt, log, status, fr_version, structure_search_version))
+    cur.execute("INSERT INTO deploy_fr_history (build_id, deploy_datetime, output_log, status, fr_version, structure_search_version, aborted) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                (build_id, dt, log, status, fr_version, structure_search_version, aborted))
     conn.commit()
     cur.close()
     conn.close()
 
-def insert_ml_log(build_id, dt, log, status):
+def insert_ml_log(build_id, dt, log, status, aborted=False):
     """Insert MarkLogic deployment log into the database."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
-    cur.execute("INSERT INTO deploy_ml_history (build_id, deploy_datetime, output_log, status) VALUES (%s, %s, %s, %s)", 
-                (build_id, dt, log, status))
+    cur.execute("INSERT INTO deploy_ml_history (build_id, deploy_datetime, output_log, status, aborted) VALUES (%s, %s, %s, %s, %s)", 
+                (build_id, dt, log, status, aborted))
     conn.commit()
     cur.close()
     conn.close()
 
-def insert_cj_log(build_id, dt, log, status, job_name):
+def insert_cj_log(build_id, dt, log, status, job_name, aborted=False):
     """Insert corb job deployment log into the database."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
-    cur.execute("INSERT INTO deploy_cj_history (build_id, deploy_datetime, output_log, status, job_name) VALUES (%s, %s, %s, %s, %s)", 
-                (build_id, dt, log, status, job_name))
+    cur.execute("INSERT INTO deploy_cj_history (build_id, deploy_datetime, output_log, status, job_name, aborted) VALUES (%s, %s, %s, %s, %s, %s)", 
+                (build_id, dt, log, status, job_name, aborted))
     conn.commit()
     cur.close()
     conn.close()
 
-def run_command(command):
-    """Run a command and yield output line by line."""
+def terminate_process_tree(pid, sig=signal.SIGTERM):
+    """Terminate a process and all its children using psutil."""
     try:
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.send_signal(sig)
+        parent.send_signal(sig)
+    except psutil.NoSuchProcess:
+        pass
+
+def run_command(command, abort_event, current_process_holder=None):
+    """Run a command and yield output line by line, checking for abort."""
+    try:
+        # Set process group if on Unix, for compatibility
+        def preexec_fn():
+            if os.name != 'nt':
+                os.setpgrp()
+
         process = subprocess.Popen(
             command,
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
+            preexec_fn=preexec_fn if os.name != 'nt' else None
         )
         
-        for line in iter(process.stdout.readline, ''):
-            yield f"{line}\n", None
+        if current_process_holder is not None:
+            current_process_holder[0] = process
 
-        process.stdout.close()
+        q = queue.Queue()
+        
+        def enqueue_output():
+            for line in iter(process.stdout.readline, ''):
+                q.put(line)
+            process.stdout.close()
+            q.put(None)  # Sentinel to indicate end
+
+        t = threading.Thread(target=enqueue_output)
+        t.daemon = True
+        t.start()
+
+        while True:
+            if abort_event.is_set():
+                try:
+                    print(f"Aborting process {process.pid}")
+                    terminate_process_tree(process.pid, signal.SIGINT)
+                    time.sleep(1)
+                    if process.poll() is None:
+                        print(f"Process {process.pid} still running, sending SIGTERM")
+                        terminate_process_tree(process.pid, signal.SIGTERM)
+                        time.sleep(1)
+                        if process.poll() is None:
+                            print(f"Process {process.pid} still running, sending SIGKILL")
+                            try:
+                                parent = psutil.Process(process.pid)
+                                children = parent.children(recursive=True)
+                                for child in children:
+                                    child.kill()
+                                parent.kill()
+                            except psutil.NoSuchProcess:
+                                pass
+                            time.sleep(0.5)
+                            if process.poll() is None:
+                                print(f"Warning: Process {process.pid} could not be terminated")
+                except Exception as e:
+                    print(f"Error during termination: {str(e)}")
+                finally:
+                    if current_process_holder is not None:
+                        current_process_holder[0] = None
+                    # Drain the queue to avoid leaving the thread hanging
+                    while not q.empty():
+                        q.get_nowait()
+                    yield "❌ Process Aborted.\n\n", None
+                    return
+
+            try:
+                line = q.get_nowait()
+                if line is None:
+                    break
+                yield f"{line}\n", None
+            except queue.Empty:
+                if process.poll() is not None:
+                    # Process ended, wait for remaining output
+                    time.sleep(0.1)
+                    continue
+                time.sleep(0.05)  # Small sleep to avoid busy loop
+
+        t.join(timeout=1.0)
         return_code = process.wait()
+
+        if current_process_holder is not None:
+            current_process_holder[0] = None
 
         yield None, return_code
 
     except Exception as e:
+        if current_process_holder is not None:
+            current_process_holder[0] = None
         yield f"❌ Error executing command: {str(e)}\n\n", None
 
-def heartbeat(lock_key, stop_event):
-    """Periodically refresh the lock's expiration time."""
+def heartbeat(lock_key, stop_event, abort_key, abort_event):
+    """Periodically refresh the lock's expiration time and check for abort signal."""
     while not stop_event.is_set():
         r.expire(lock_key, LOCK_TIMEOUT)
-        for _ in range(10):
-            if stop_event.is_set():
-                break
-            time.sleep(HEARTBEAT_INTERVAL / 10)
+        if r.get(abort_key):
+            abort_event.set()
+            r.delete(abort_key)
+        time.sleep(HEARTBEAT_INTERVAL)
 
 def cleanup_stale_locks():
-    """Check and clean up stale locks on server startup."""
+    """Check and clean up stale locks and abort keys on server startup."""
     for lock_key in ['deploy_fr_lock', 'deploy_ml_cj_lock']:
         if r.exists(lock_key):
-            # Only delete if lock has expired (TTL <= 0)
             if r.ttl(lock_key) <= 0:
                 r.delete(lock_key)
+    for abort_key in ['abort_fr', 'abort_ml', 'abort_cj']:
+        if r.exists(abort_key):
+            r.delete(abort_key)
 
 @app.route('/')
 def home():
@@ -182,6 +269,9 @@ def home():
             "/api/v1/history/fr": "Get history for FR deployments (last 10 or specific buildId)",
             "/api/v1/history/ml": "Get history for ML deployments (last 10 or specific buildId)",
             "/api/v1/history/cj": "Get history for corb job runs (last 10 or specific buildId)",
+            "/api/v1/abort/fr": "Abort ongoing frontend deployment",
+            "/api/v1/abort/ml": "Abort ongoing MarkLogic deployment",
+            "/api/v1/abort/cj": "Abort ongoing corb job run",
             "/health": "Health check"
         },
         "guide": {
@@ -212,23 +302,23 @@ def deploy_frontend():
         3: "fr-version and structure-search-version is missing in the query string"
     }
     if params != 0:
-        error_response = jsonify({
+        return jsonify({
             "success": "false",
             "error": "Missing required parameter",
             "message": params_def[params],
             "required_parameters": ["fr-version", "structure-search-version"],
             "status_code": 400
-        })
-        return error_response
+        }), 400
 
-    # Check and acquire lock
     lock_key = 'deploy_fr_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "Deployment is going on for the frontend application."}), 409
 
-    # Start heartbeat thread
     stop_heartbeat = threading.Event()
-    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat))
+    abort_event = threading.Event()
+    current_process_holder = [None]
+    abort_key = 'abort_fr'
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat, abort_key, abort_event))
     heartbeat_thread.start()
 
     def generate():
@@ -238,65 +328,108 @@ def deploy_frontend():
             log = ''
             status = True
 
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, True)
+                return
+
             msg = "Proceeding to deploy FRONTEND in DEV-FULL\n\n"
             yield msg
             log += msg
-            sleep(1)
 
-            msg = "UI VERSION --> {}\n".format(fr_version)
-            yield msg
-            log += msg
-            sleep(1)
-
-            msg = "MIDDLEWARE VERSION --> {}\n".format(fr_version)
-            yield msg
-            log += msg
-            sleep(1)
-
-            msg = "STRUCTURE SEARCH VERSION --> {}\n\n".format(structure_search_version)
-            yield msg
-            log += msg
-            sleep(1)
-
-            rc = None
-            for output, return_code in run_command('./script.sh {} {}'.format(fr_version, structure_search_version)):
-                if return_code is None:
-                    yield output
-                    log += output
-                else:
-                    rc = return_code
-
-            if rc == 0:
-                msg = "✅ Deployment Successful.\n\n"
-                yield msg
-                log += msg
-            else:
-                msg = f"❌ Deployment Failed {rc}\n\n"
-                yield msg
-                log += msg
+            if abort_event.is_set():
                 status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, True)
+                return
 
-            insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version)
+            msg = f"UI VERSION --> {fr_version}\n"
+            yield msg
+            log += msg
+
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, True)
+                return
+
+            msg = f"MIDDLEWARE VERSION --> {fr_version}\n"
+            yield msg
+            log += msg
+
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, True)
+                return
+
+            msg = f"STRUCTURE SEARCH VERSION --> {structure_search_version}\n\n"
+            yield msg
+            log += msg
+
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, True)
+                return
+
+            for output, return_code in run_command(f'./script.sh {fr_version} {structure_search_version}', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Deployment Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, True)
+                    return
+                if return_code is None:
+                    if output:
+                        yield output
+                        log += output
+                else:
+                    if return_code != 0:
+                        status = False
+                        msg = f"❌ Deployment Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, False)
+                        return
+
+            msg = "✅ Deployment Successful.\n\n"
+            yield msg
+            log += msg
+            insert_fr_log(build_id, dt, log, status, fr_version, structure_search_version, False)
+
         finally:
             stop_heartbeat.set()
-            heartbeat_thread.join(timeout=1.0)
-            # Only release lock if this server owns it
+            heartbeat_thread.join(timeout=0.5)
             if r.get(lock_key) == SERVER_ID.encode():
                 r.delete(lock_key)
 
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(generate(), mimetype='text/event-stream', headers={'X-Accel-Buffering': 'no'})
 
 @app.route('/api/v1/deploy/ml')
 def deploy_marklogic():
     """Deploy MarkLogic in DEV-FULL."""
-    # Check and acquire lock
     lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "Deployment is going on for the MarkLogic application or a corb job is running."}), 409
 
-    # Start heartbeat thread
     stop_heartbeat = threading.Event()
-    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat))
+    abort_event = threading.Event()
+    current_process_holder = [None]
+    abort_key = 'abort_ml'
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat, abort_key, abort_event))
     heartbeat_thread.start()
 
     def generate():
@@ -306,91 +439,138 @@ def deploy_marklogic():
             log = ''
             status = True
 
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_ml_log(build_id, dt, log, status, True)
+                return
+
             msg = "Proceeding to deploy MARKLOGIC in DEV-FULL\n\n"
             yield msg
             log += msg
-            sleep(1)
 
-            msg = "Changing current directory to {} and checking out to {} branch\n".format(repo_name, branch_name)
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Deployment Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_ml_log(build_id, dt, log, status, True)
+                return
+
+            msg = f"Changing current directory to {repo_name} and checking out to {branch_name} branch\n"
             yield msg
             log += msg
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{}/ && git checkout {}'.format(repo_name, branch_name)):
+            for output, return_code in run_command(f'ccd $(pwd)/{repo_name}/ && git checkout {branch_name}', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Deployment Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_ml_log(build_id, dt, log, status, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
-
-            sleep(1)
+                        msg = f"❌ Deployment Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_ml_log(build_id, dt, log, status, False)
+                        return
 
             msg = "\nTaking pull from develop branch\n"
             yield msg
             log += msg
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{}/ && git pull'.format(repo_name, branch_name)):
+            for output, return_code in run_command(f'cd $(pwd)/{repo_name}/ && git pull', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Deployment Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_ml_log(build_id, dt, log, status, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
-
-            sleep(1)
+                        msg = f"❌ Deployment Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_ml_log(build_id, dt, log, status, False)
+                        return
 
             msg = "\nDeploying code\n"
             yield msg
             log += msg
-            sleep(1)
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml'.format(marklogic_path)):
+            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Deployment Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_ml_log(build_id, dt, log, status, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
+                        msg = f"❌ Deployment Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_ml_log(build_id, dt, log, status, False)
+                        return
 
             msg = "\nReloading modules\n"
             yield msg
             log += msg
-            sleep(1)
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml'.format(marklogic_path)):
+            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Deployment Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_ml_log(build_id, dt, log, status, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
+                        msg = f"❌ Deployment Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_ml_log(build_id, dt, log, status, False)
+                        return
 
-            if status:
-                msg = "✅ Deployment Successful.\n\n"
-                yield msg
-                log += msg
-            else:
-                msg = f"❌ Deployment Failed {rc}\n\n"
-                yield msg
-                log += msg
+            msg = "✅ Deployment Successful.\n\n"
+            yield msg
+            log += msg
+            insert_ml_log(build_id, dt, log, status, False)
 
-            insert_ml_log(build_id, dt, log, status)
         finally:
             stop_heartbeat.set()
-            heartbeat_thread.join(timeout=1.0)
-            # Only release lock if this server owns it
+            heartbeat_thread.join(timeout=0.5)
             if r.get(lock_key) == SERVER_ID.encode():
                 r.delete(lock_key)
 
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(generate(), mimetype='text/event-stream', headers={'X-Accel-Buffering': 'no'})
 
 @app.route('/api/v1/run/cj')
 def run_corb_job():
@@ -405,14 +585,15 @@ def run_corb_job():
             "status_code": 400
         }), 400
 
-    # Check and acquire lock
     lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "corb job is already running or a MarkLogic deployment is in progress."}), 409
 
-    # Start heartbeat thread
     stop_heartbeat = threading.Event()
-    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat))
+    abort_event = threading.Event()
+    current_process_holder = [None]
+    abort_key = 'abort_cj'
+    heartbeat_thread = threading.Thread(target=heartbeat, args=(lock_key, stop_heartbeat, abort_key, abort_event))
     heartbeat_thread.start()
 
     def generate():
@@ -422,76 +603,143 @@ def run_corb_job():
             log = ''
             status = True
 
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Job Run Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_cj_log(build_id, dt, log, status, job_name, True)
+                return
+
             msg = f"Proceeding to run corb job {job_name} in DEV-FULL\n\n"
             yield msg
             log += msg
-            sleep(1)
 
-            msg = "Changing current directory to {} and checking out to {} branch\n".format(repo_name, branch_name)
+            if abort_event.is_set():
+                status = False
+                msg = "❌ Job Run Aborted.\n\n"
+                yield msg
+                log += msg
+                insert_cj_log(build_id, dt, log, status, job_name, True)
+                return
+
+            msg = f"Changing current directory to {repo_name} and checking out to {branch_name} branch\n"
             yield msg
             log += msg
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{}/ && git checkout {}'.format(repo_name, branch_name)):
+            for output, return_code in run_command(f'cd $(pwd)/{repo_name}/ && git checkout {branch_name}', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Job Run Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_cj_log(build_id, dt, log, status, job_name, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
-
-            sleep(1)
+                        msg = f"❌ Job Run Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_cj_log(build_id, dt, log, status, job_name, False)
+                        return
 
             msg = "\nTaking pull from develop branch\n"
             yield msg
             log += msg
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{}/ && git pull'.format(repo_name, branch_name)):
+            for output, return_code in run_command(f'cd $(pwd)/{repo_name}/ && git pull', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Job Run Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_cj_log(build_id, dt, log, status, job_name, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
-
-            sleep(1)
+                        msg = f"❌ Job Run Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_cj_log(build_id, dt, log, status, job_name, False)
+                        return
 
             msg = "\nDeploying code\n"
             yield msg
             log += msg
-            sleep(1)
 
-            rc = None
-            for output, return_code in run_command('cd $(pwd)/{} && ./gradlew {} -PenvironmentName=ls-dev-full-ml'.format(marklogic_path,job_name)):
+            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew {job_name} -PenvironmentName=ls-dev-full-ml', abort_event, current_process_holder):
+                if abort_event.is_set():
+                    status = False
+                    msg = "❌ Job Run Aborted.\n\n"
+                    yield msg
+                    log += msg
+                    insert_cj_log(build_id, dt, log, status, job_name, True)
+                    return
                 if return_code is None:
-                    yield output
-                    log += output
+                    if output:
+                        yield output
+                        log += output
                 else:
-                    rc = return_code
-                    if rc != 0:
+                    if return_code != 0:
                         status = False
+                        msg = f"❌ Job Run Failed {return_code}\n\n"
+                        yield msg
+                        log += msg
+                        insert_cj_log(build_id, dt, log, status, job_name, False)
+                        return
 
-            if status:
-                msg = "✅ Job Run Successful.\n\n"
-                yield msg
-                log += msg
-            else:
-                msg = f"❌ Job Run Failed {rc}\n\n"
-                yield msg
-                log += msg
+            msg = "✅ Job Run Successful.\n\n"
+            yield msg
+            log += msg
+            insert_cj_log(build_id, dt, log, status, job_name, False)
 
-            insert_cj_log(build_id, dt, log, status, job_name)
         finally:
             stop_heartbeat.set()
-            heartbeat_thread.join(timeout=1.0)
-            # Only release lock if this server owns it
+            heartbeat_thread.join(timeout=0.5)
             if r.get(lock_key) == SERVER_ID.encode():
                 r.delete(lock_key)
 
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(generate(), mimetype='text/event-stream', headers={'X-Accel-Buffering': 'no'})
+
+@app.route('/api/v1/abort/fr')
+def abort_frontend():
+    lock_key = 'deploy_fr_lock'
+    abort_key = 'abort_fr'
+    if r.exists(lock_key):
+        r.set(abort_key, 'true', ex=30)
+        return jsonify({"message": "Abort signal sent for frontend deployment."})
+    else:
+        return jsonify({"error": "No ongoing frontend deployment to abort."}), 404
+
+@app.route('/api/v1/abort/ml')
+def abort_marklogic():
+    lock_key = 'deploy_ml_cj_lock'
+    abort_key = 'abort_ml'
+    if r.exists(lock_key):
+        r.set(abort_key, 'true', ex=30)
+        return jsonify({"message": "Abort signal sent for MarkLogic deployment."})
+    else:
+        return jsonify({"error": "No ongoing MarkLogic deployment to abort."}), 404
+
+@app.route('/api/v1/abort/cj')
+def abort_corb_job():
+    lock_key = 'deploy_ml_cj_lock'
+    abort_key = 'abort_cj'
+    if r.exists(lock_key):
+        r.set(abort_key, 'true', ex=30)
+        return jsonify({"message": "Abort signal sent for corb job run."})
+    else:
+        return jsonify({"error": "No ongoing corb job run to abort."}), 404
 
 @app.route('/api/v1/history/fr')
 def history_fr():
@@ -501,8 +749,8 @@ def history_fr():
     cur = conn.cursor()
     if build_id:
         try:
-            build_id = int(build_id)  # Convert to integer for query
-            cur.execute("SELECT deploy_datetime, output_log, status, fr_version, structure_search_version FROM deploy_fr_history WHERE build_id = %s", (build_id,))
+            build_id = int(build_id)
+            cur.execute("SELECT deploy_datetime, output_log, status, fr_version, structure_search_version, aborted FROM deploy_fr_history WHERE build_id = %s", (build_id,))
             row = cur.fetchone()
             cur.close()
             conn.close()
@@ -513,7 +761,8 @@ def history_fr():
                     'output_log': row[1],
                     'status': row[2],
                     'fr-version': row[3],
-                    'structure-search-version': row[4]
+                    'structure-search-version': row[4],
+                    'aborted': row[5]
                 })
             else:
                 return jsonify({'error': 'Build ID not found'}), 404
@@ -522,11 +771,11 @@ def history_fr():
             conn.close()
             return jsonify({'error': 'Build ID must be an integer'}), 400
     else:
-        cur.execute("SELECT build_id, deploy_datetime, status, fr_version, structure_search_version FROM deploy_fr_history ORDER BY deploy_datetime DESC LIMIT 10")
+        cur.execute("SELECT build_id, deploy_datetime, status, fr_version, structure_search_version, aborted FROM deploy_fr_history ORDER BY deploy_datetime DESC LIMIT 10")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'fr-version': row[3], 'structure-search-version': row[4]} for row in rows]
+        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'fr-version': row[3], 'structure-search-version': row[4], 'aborted': row[5]} for row in rows]
         return jsonify(history)
 
 @app.route('/api/v1/history/ml')
@@ -537,8 +786,8 @@ def history_ml():
     cur = conn.cursor()
     if build_id:
         try:
-            build_id = int(build_id)  # Convert to integer for query
-            cur.execute("SELECT deploy_datetime, output_log, status FROM deploy_ml_history WHERE build_id = %s", (build_id,))
+            build_id = int(build_id)
+            cur.execute("SELECT deploy_datetime, output_log, status, aborted FROM deploy_ml_history WHERE build_id = %s", (build_id,))
             row = cur.fetchone()
             cur.close()
             conn.close()
@@ -547,7 +796,8 @@ def history_ml():
                     'buildId': str(build_id),
                     'datetime': row[0].isoformat(),
                     'output_log': row[1],
-                    'status': row[2]
+                    'status': row[2],
+                    'aborted': row[3]
                 })
             else:
                 return jsonify({'error': 'Build ID not found'}), 404
@@ -556,11 +806,11 @@ def history_ml():
             conn.close()
             return jsonify({'error': 'Build ID must be an integer'}), 400
     else:
-        cur.execute("SELECT build_id, deploy_datetime, status FROM deploy_ml_history ORDER BY deploy_datetime DESC LIMIT 10")
+        cur.execute("SELECT build_id, deploy_datetime, status, aborted FROM deploy_ml_history ORDER BY deploy_datetime DESC LIMIT 10")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2]} for row in rows]
+        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'aborted': row[3]} for row in rows]
         return jsonify(history)
 
 @app.route('/api/v1/history/cj')
@@ -571,8 +821,8 @@ def history_cj():
     cur = conn.cursor()
     if build_id:
         try:
-            build_id = int(build_id)  # Convert to integer for query
-            cur.execute("SELECT deploy_datetime, output_log, status, job_name FROM deploy_cj_history WHERE build_id = %s", (build_id,))
+            build_id = int(build_id)
+            cur.execute("SELECT deploy_datetime, output_log, status, job_name, aborted FROM deploy_cj_history WHERE build_id = %s", (build_id,))
             row = cur.fetchone()
             cur.close()
             conn.close()
@@ -582,7 +832,8 @@ def history_cj():
                     'datetime': row[0].isoformat(),
                     'output_log': row[1],
                     'status': row[2],
-                    'job-name': row[3]
+                    'job-name': row[3],
+                    'aborted': row[4]
                 })
             else:
                 return jsonify({'error': 'Build ID not found'}), 404
@@ -591,11 +842,11 @@ def history_cj():
             conn.close()
             return jsonify({'error': 'Build ID must be an integer'}), 400
     else:
-        cur.execute("SELECT build_id, deploy_datetime, status, job_name FROM deploy_cj_history ORDER BY deploy_datetime DESC LIMIT 10")
+        cur.execute("SELECT build_id, deploy_datetime, status, job_name, aborted FROM deploy_cj_history ORDER BY deploy_datetime DESC LIMIT 10")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'jobName': row[3]} for row in rows]
+        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'jobName': row[3], 'aborted': row[4]} for row in rows]
         return jsonify(history)
 
 @app.route('/api/v1/health')
@@ -604,6 +855,6 @@ def health_check():
     return jsonify({"status": "healthy", "service": "simple-command-api"})
 
 if __name__ == '__main__':
-    cleanup_stale_locks()  # Clean up only expired locks on startup
-    create_tables()  # Initialize database tables
+    cleanup_stale_locks()
+    create_tables()
     app.run(host='0.0.0.0', port=8080, debug=False)
