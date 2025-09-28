@@ -14,7 +14,6 @@ import queue
 
 repo_name = "ls-prime"
 marklogic_path = "ls-prime/marklogic"
-branch_name = "develop"
 
 app = Flask(__name__)
 CORS(app)
@@ -57,6 +56,8 @@ def create_tables():
             deploy_datetime TIMESTAMP,
             output_log TEXT,
             status BOOLEAN,
+            branch_name VARCHAR(100),
+            environment_type VARCHAR(100),
             aborted BOOLEAN DEFAULT FALSE
         )
     """)
@@ -67,6 +68,8 @@ def create_tables():
             output_log TEXT,
             status BOOLEAN,
             job_name VARCHAR(100),
+            branch_name VARCHAR(100),
+            environment_type VARCHAR(100),
             aborted BOOLEAN DEFAULT FALSE
         )
     """)
@@ -114,25 +117,32 @@ def insert_fr_log(build_id, dt, log, status, fr_version, structure_search_versio
     cur.close()
     conn.close()
 
-def insert_ml_log(build_id, dt, log, status, aborted=False):
+def insert_ml_log(build_id, dt, log, status, branch_name, environment_type, aborted=False):
     """Insert MarkLogic deployment log into the database."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
-    cur.execute("INSERT INTO deploy_ml_history (build_id, deploy_datetime, output_log, status, aborted) VALUES (%s, %s, %s, %s, %s)", 
-                (build_id, dt, log, status, aborted))
+    cur.execute("INSERT INTO deploy_ml_history (build_id, deploy_datetime, output_log, status, branch_name, environment_type, aborted) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                (build_id, dt, log, status, branch_name, environment_type, aborted))
     conn.commit()
     cur.close()
     conn.close()
 
-def insert_cj_log(build_id, dt, log, status, job_name, aborted=False):
+def insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, aborted=False):
     """Insert corb job deployment log into the database."""
     conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     cur = conn.cursor()
-    cur.execute("INSERT INTO deploy_cj_history (build_id, deploy_datetime, output_log, status, job_name, aborted) VALUES (%s, %s, %s, %s, %s, %s)", 
-                (build_id, dt, log, status, job_name, aborted))
+    cur.execute("INSERT INTO deploy_cj_history (build_id, deploy_datetime, output_log, status, job_name, branch_name, environment_type, aborted) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", 
+                (build_id, dt, log, status, job_name, branch_name, environment_type, aborted))
     conn.commit()
     cur.close()
     conn.close()
+
+def getEnvironmentName(environment_type):
+    if environment_type == 'DEV-FULL':
+        return 'ls-dev-full-ml'
+    if environment_type == 'DEV-SMALL':
+        return 'ls-dev-small-ml'
+    
 
 def terminate_process_tree(pid, sig=signal.SIGTERM):
     """Terminate a process and all its children using psutil."""
@@ -264,8 +274,8 @@ def home():
         "endpoints": {
             "/": "Displays this doc",
             "/api/v1/deploy/fr": "Deploy UI and MIDDLEWARE in DEV-FULL",
-            "/api/v1/deploy/ml": "Deploy MARKLOGIC in DEV-FULL",
-            "/api/v1/run/cj": "Run corb job with specified job name",
+            "/api/v1/deploy/ml": "Deploy MARKLOGIC with specified branch and environment",
+            "/api/v1/run/cj": "Run corb job with specified job name, branch, and environment",
             "/api/v1/history/fr": "Get history for FR deployments (last 10 or specific buildId)",
             "/api/v1/history/ml": "Get history for ML deployments (last 10 or specific buildId)",
             "/api/v1/history/cj": "Get history for corb job runs (last 10 or specific buildId)",
@@ -276,8 +286,8 @@ def home():
         },
         "guide": {
             "deploy_ui_and_middleware": "/api/v1/deploy/fr?fr_version=x.y.z-SNAPSHOT&structure_search_version=x.y.z-SNAPSHOT",
-            "deploy_marklogic": "/api/v1/deploy/ml",
-            "run_corb_job": "/api/v1/run/cj?job-name=somename",
+            "deploy_marklogic": "/api/v1/deploy/ml?branchName=develop&environmentType=ls-dev-full-ml",
+            "run_corb_job": "/api/v1/run/cj?job-name=somename&branchName=develop&environmentType=ls-dev-full-ml",
             "history_fr": "/api/v1/history/fr or /api/v1/history/fr?buildId=1234",
             "history_ml": "/api/v1/history/ml or /api/v1/history/ml?buildId=1234",
             "history_cj": "/api/v1/history/cj or /api/v1/history/cj?buildId=1234"
@@ -420,11 +430,36 @@ def deploy_frontend():
 
 @app.route('/api/v1/deploy/ml')
 def deploy_marklogic():
-    """Deploy MarkLogic in DEV-FULL."""
+    """Deploy MarkLogic with specified branch and environment."""
+    branch_name = request.args.get('branchName')
+    environment_type = request.args.get('environmentType')
+    params = 0
+    if branch_name is None:
+        params = 1
+    if environment_type is None:
+        params = 2
+    if branch_name is None and environment_type is None:
+        params = 3
+    params_def = {
+        1: "branchName is missing in the query string",
+        2: "environmentType is missing in the query string",
+        3: "branchName and environmentType are missing in the query string"
+    }
+    if params != 0:
+        return jsonify({
+            "success": "false",
+            "error": "Missing required parameter",
+            "message": params_def[params],
+            "required_parameters": ["branchName", "environmentType"],
+            "status_code": 400
+        }), 400
+
+    EnvironmentName = getEnvironmentName(environment_type)
+    
     lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "Deployment is going on for the MarkLogic application or a corb job is running."}), 409
-
+    
     stop_heartbeat = threading.Event()
     abort_event = threading.Event()
     current_process_holder = [None]
@@ -444,10 +479,10 @@ def deploy_marklogic():
                 msg = "❌ Deployment Aborted.\n\n"
                 yield msg
                 log += msg
-                insert_ml_log(build_id, dt, log, status, True)
+                insert_ml_log(build_id, dt, log, status, branch_name, environment_type, True)
                 return
 
-            msg = "Proceeding to deploy MARKLOGIC in DEV-FULL\n\n"
+            msg = f"Proceeding to deploy MARKLOGIC in {environment_type}\n\n"
             yield msg
             log += msg
 
@@ -456,20 +491,20 @@ def deploy_marklogic():
                 msg = "❌ Deployment Aborted.\n\n"
                 yield msg
                 log += msg
-                insert_ml_log(build_id, dt, log, status, True)
+                insert_ml_log(build_id, dt, log, status, branch_name, environment_type, True)
                 return
 
             msg = f"Changing current directory to {repo_name} and checking out to {branch_name} branch\n"
             yield msg
             log += msg
 
-            for output, return_code in run_command(f'ccd $(pwd)/{repo_name}/ && git checkout {branch_name}', abort_event, current_process_holder):
+            for output, return_code in run_command(f'cd $(pwd)/{repo_name}/ && git checkout {branch_name}', abort_event, current_process_holder):
                 if abort_event.is_set():
                     status = False
                     msg = "❌ Deployment Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_ml_log(build_id, dt, log, status, True)
+                    insert_ml_log(build_id, dt, log, status, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -481,10 +516,10 @@ def deploy_marklogic():
                         msg = f"❌ Deployment Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_ml_log(build_id, dt, log, status, False)
+                        insert_ml_log(build_id, dt, log, status, branch_name, environment_type, False)
                         return
 
-            msg = "\nTaking pull from develop branch\n"
+            msg = f"\nTaking pull from {branch_name} branch\n"
             yield msg
             log += msg
 
@@ -494,7 +529,7 @@ def deploy_marklogic():
                     msg = "❌ Deployment Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_ml_log(build_id, dt, log, status, True)
+                    insert_ml_log(build_id, dt, log, status, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -506,20 +541,20 @@ def deploy_marklogic():
                         msg = f"❌ Deployment Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_ml_log(build_id, dt, log, status, False)
+                        insert_ml_log(build_id, dt, log, status, branch_name, environment_type, False)
                         return
 
             msg = "\nDeploying code\n"
             yield msg
             log += msg
 
-            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml', abort_event, current_process_holder):
+            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew mlDeploy -PenvironmentName={EnvironmentName}', abort_event, current_process_holder):
                 if abort_event.is_set():
                     status = False
                     msg = "❌ Deployment Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_ml_log(build_id, dt, log, status, True)
+                    insert_ml_log(build_id, dt, log, status, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -531,20 +566,20 @@ def deploy_marklogic():
                         msg = f"❌ Deployment Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_ml_log(build_id, dt, log, status, False)
+                        insert_ml_log(build_id, dt, log, status, branch_name, environment_type, False)
                         return
 
             msg = "\nReloading modules\n"
             yield msg
             log += msg
 
-            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew mlDeploy -PenvironmentName=ls-dev-full-ml', abort_event, current_process_holder):
+            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew mlDeploy -PenvironmentName={EnvironmentName}', abort_event, current_process_holder):
                 if abort_event.is_set():
                     status = False
                     msg = "❌ Deployment Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_ml_log(build_id, dt, log, status, True)
+                    insert_ml_log(build_id, dt, log, status, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -556,13 +591,13 @@ def deploy_marklogic():
                         msg = f"❌ Deployment Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_ml_log(build_id, dt, log, status, False)
+                        insert_ml_log(build_id, dt, log, status, branch_name, environment_type, False)
                         return
 
             msg = "✅ Deployment Successful.\n\n"
             yield msg
             log += msg
-            insert_ml_log(build_id, dt, log, status, False)
+            insert_ml_log(build_id, dt, log, status, branch_name, environment_type, False)
 
         finally:
             stop_heartbeat.set()
@@ -574,17 +609,43 @@ def deploy_marklogic():
 
 @app.route('/api/v1/run/cj')
 def run_corb_job():
-    """Run corb job with specified job name."""
+    """Run corb job with specified job name, branch, and environment."""
     job_name = request.args.get('job-name')
+    branch_name = request.args.get('branchName')
+    environment_type = request.args.get('environmentType')
+    params = 0
     if job_name is None:
+        params = 1
+    if branch_name is None:
+        params = 2
+    if environment_type is None:
+        params = 3
+    if job_name is None and branch_name is None:
+        params = 4
+    if job_name is None and environment_type is None:
+        params = 5
+    if branch_name is None and environment_type is None:
+        params = 6
+    if job_name is None and branch_name is None and environment_type is None:
+        params = 7
+    params_def = {
+        1: "job-name is missing in the query string",
+        2: "branchName is missing in the query string",
+        3: "environmentType is missing in the query string",
+        4: "job-name and branchName are missing in the query string",
+        5: "job-name and environmentType are missing in the query string",
+        6: "branchName and environmentType are missing in the query string",
+        7: "job-name, branchName, and environmentType are missing in the query string"
+    }
+    if params != 0:
         return jsonify({
             "success": "false",
             "error": "Missing required parameter",
-            "message": "job-name is missing in the query string",
-            "required_parameters": ["job-name"],
+            "message": params_def[params],
+            "required_parameters": ["job-name", "branchName", "environmentType"],
             "status_code": 400
         }), 400
-
+    
     lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "corb job is already running or a MarkLogic deployment is in progress."}), 409
@@ -608,10 +669,10 @@ def run_corb_job():
                 msg = "❌ Job Run Aborted.\n\n"
                 yield msg
                 log += msg
-                insert_cj_log(build_id, dt, log, status, job_name, True)
+                insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, True)
                 return
 
-            msg = f"Proceeding to run corb job {job_name} in DEV-FULL\n\n"
+            msg = f"Proceeding to run corb job {job_name} in {environment_type}\n\n"
             yield msg
             log += msg
 
@@ -620,7 +681,7 @@ def run_corb_job():
                 msg = "❌ Job Run Aborted.\n\n"
                 yield msg
                 log += msg
-                insert_cj_log(build_id, dt, log, status, job_name, True)
+                insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, True)
                 return
 
             msg = f"Changing current directory to {repo_name} and checking out to {branch_name} branch\n"
@@ -633,7 +694,7 @@ def run_corb_job():
                     msg = "❌ Job Run Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_cj_log(build_id, dt, log, status, job_name, True)
+                    insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -645,10 +706,10 @@ def run_corb_job():
                         msg = f"❌ Job Run Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_cj_log(build_id, dt, log, status, job_name, False)
+                        insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, False)
                         return
 
-            msg = "\nTaking pull from develop branch\n"
+            msg = f"\nTaking pull from {branch_name} branch\n"
             yield msg
             log += msg
 
@@ -658,7 +719,7 @@ def run_corb_job():
                     msg = "❌ Job Run Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_cj_log(build_id, dt, log, status, job_name, True)
+                    insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -670,20 +731,20 @@ def run_corb_job():
                         msg = f"❌ Job Run Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_cj_log(build_id, dt, log, status, job_name, False)
+                        insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, False)
                         return
 
             msg = "\nDeploying code\n"
             yield msg
             log += msg
 
-            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew {job_name} -PenvironmentName=ls-dev-full-ml', abort_event, current_process_holder):
+            for output, return_code in run_command(f'cd $(pwd)/{marklogic_path} && ./gradlew {job_name} -PenvironmentName={EnvironmentName}', abort_event, current_process_holder):
                 if abort_event.is_set():
                     status = False
                     msg = "❌ Job Run Aborted.\n\n"
                     yield msg
                     log += msg
-                    insert_cj_log(build_id, dt, log, status, job_name, True)
+                    insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, True)
                     return
                 if return_code is None:
                     if output:
@@ -695,13 +756,13 @@ def run_corb_job():
                         msg = f"❌ Job Run Failed {return_code}\n\n"
                         yield msg
                         log += msg
-                        insert_cj_log(build_id, dt, log, status, job_name, False)
+                        insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, False)
                         return
 
             msg = "✅ Job Run Successful.\n\n"
             yield msg
             log += msg
-            insert_cj_log(build_id, dt, log, status, job_name, False)
+            insert_cj_log(build_id, dt, log, status, job_name, branch_name, environment_type, False)
 
         finally:
             stop_heartbeat.set()
@@ -787,7 +848,7 @@ def history_ml():
     if build_id:
         try:
             build_id = int(build_id)
-            cur.execute("SELECT deploy_datetime, output_log, status, aborted FROM deploy_ml_history WHERE build_id = %s", (build_id,))
+            cur.execute("SELECT deploy_datetime, output_log, status, branch_name, environment_type, aborted FROM deploy_ml_history WHERE build_id = %s", (build_id,))
             row = cur.fetchone()
             cur.close()
             conn.close()
@@ -797,7 +858,9 @@ def history_ml():
                     'datetime': row[0].isoformat(),
                     'output_log': row[1],
                     'status': row[2],
-                    'aborted': row[3]
+                    'branchName': row[3],
+                    'environmentType': row[4],
+                    'aborted': row[5]
                 })
             else:
                 return jsonify({'error': 'Build ID not found'}), 404
@@ -806,11 +869,11 @@ def history_ml():
             conn.close()
             return jsonify({'error': 'Build ID must be an integer'}), 400
     else:
-        cur.execute("SELECT build_id, deploy_datetime, status, aborted FROM deploy_ml_history ORDER BY deploy_datetime DESC LIMIT 10")
+        cur.execute("SELECT build_id, deploy_datetime, status, branch_name, environment_type, aborted FROM deploy_ml_history ORDER BY deploy_datetime DESC LIMIT 10")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'aborted': row[3]} for row in rows]
+        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'branchName': row[3], 'environmentType': row[4], 'aborted': row[5]} for row in rows]
         return jsonify(history)
 
 @app.route('/api/v1/history/cj')
@@ -822,7 +885,7 @@ def history_cj():
     if build_id:
         try:
             build_id = int(build_id)
-            cur.execute("SELECT deploy_datetime, output_log, status, job_name, aborted FROM deploy_cj_history WHERE build_id = %s", (build_id,))
+            cur.execute("SELECT deploy_datetime, output_log, status, job_name, branch_name, environment_type, aborted FROM deploy_cj_history WHERE build_id = %s", (build_id,))
             row = cur.fetchone()
             cur.close()
             conn.close()
@@ -833,7 +896,9 @@ def history_cj():
                     'output_log': row[1],
                     'status': row[2],
                     'job-name': row[3],
-                    'aborted': row[4]
+                    'branchName': row[4],
+                    'environmentType': row[5],
+                    'aborted': row[6]
                 })
             else:
                 return jsonify({'error': 'Build ID not found'}), 404
@@ -842,11 +907,11 @@ def history_cj():
             conn.close()
             return jsonify({'error': 'Build ID must be an integer'}), 400
     else:
-        cur.execute("SELECT build_id, deploy_datetime, status, job_name, aborted FROM deploy_cj_history ORDER BY deploy_datetime DESC LIMIT 10")
+        cur.execute("SELECT build_id, deploy_datetime, status, job_name, branch_name, environment_type, aborted FROM deploy_cj_history ORDER BY deploy_datetime DESC LIMIT 10")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'jobName': row[3], 'aborted': row[4]} for row in rows]
+        history = [{'buildId': str(row[0]), 'datetime': row[1].isoformat(), 'status': row[2], 'jobName': row[3], 'branchName': row[4], 'environmentType': row[5], 'aborted': row[6]} for row in rows]
         return jsonify(history)
 
 @app.route('/api/v1/health')
