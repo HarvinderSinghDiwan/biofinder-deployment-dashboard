@@ -142,6 +142,11 @@ def getEnvironmentName(environment_type):
         return 'ls-dev-full-ml'
     if environment_type == 'DEV-SMALL':
         return 'ls-dev-small-ml'
+    if environment_type == 'INGESTION':
+        return 'ingestion'
+    if environment_type == 'TEST':
+        return 'test'
+
     
 
 def terminate_process_tree(pid, sig=signal.SIGTERM):
