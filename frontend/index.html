@@ -1,4 +1,4 @@
-html
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,9 +15,9 @@ html
       --neon-glow: rgba(0, 255, 234, 0.5);
       --text: #e0e0e0;
       --muted: #6b7280;
-      --success: #10b981; /* Green for success */
-      --error: #f43f5e;   /* Red for failed */
-      --warn: #eab308;    /* Yellow for aborted */
+      --success: #10b981;
+      --error: #f43f5e;
+      --warn: #eab308;
     }
 
     html, body {
@@ -125,7 +125,7 @@ html
       margin-bottom: 4px;
     }
 
-    input[type="text"] {
+    input[type="text"], select {
       width: 100%;
       padding: 6px;
       background: rgba(0, 0, 0, 0.5);
@@ -138,7 +138,7 @@ html
       box-sizing: border-box;
     }
 
-    input[type="text"]:focus {
+    input[type="text"]:focus, select:focus {
       box-shadow: 0 0 8px var(--neon-glow);
     }
 
@@ -281,18 +281,18 @@ html
     }
 
     .status-indicator.pass {
-      background: #10b981; /* Green for success */
-      box-shadow: 0 0 5px #10b981;
+      background: var(--success);
+      box-shadow: 0 0 5px var(--success);
     }
 
     .status-indicator.fail {
-      background: #f43f5e; /* Red for failed */
-      box-shadow: 0 0 5px #f43f5e;
+      background: var(--error);
+      box-shadow: 0 0 5px var(--error);
     }
 
     .status-indicator.aborted {
-      background: #eab308; /* Yellow for aborted */
-      box-shadow: 0 0 5px #eab308;
+      background: var(--warn);
+      box-shadow: 0 0 5px var(--warn);
     }
 
     .status-indicator.unknown {
@@ -307,15 +307,15 @@ html
     }
 
     .status-text.pass {
-      color: #10b981;
+      color: var(--success);
     }
 
     .status-text.fail {
-      color: #f43f5e;
+      color: var(--error);
     }
 
     .status-text.aborted {
-      color: #eab308;
+      color: var(--warn);
     }
 
     .status-text.unknown {
@@ -332,7 +332,7 @@ html
       font-size: 12px;
       color: var(--text);
       margin-bottom: 48px;
-      max-height: calc(100% - 38px - 48px); /* header (38px) + sticky buttons (48px) */
+      max-height: calc(100% - 38px - 48px);
       box-sizing: border-box;
     }
 
@@ -388,7 +388,7 @@ html
       right: 14px;
       display: flex;
       gap: 12px;
-      justify-content: center;
+      justify-content: flex-start;
       background: var(--panel);
       padding: 8px;
       border-radius: 4px;
@@ -432,6 +432,15 @@ html
       font-size: 11px;
       padding: 6px;
       text-align: center;
+    }
+
+    .copyright {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      z-index: 1000;
     }
 
     @media (max-width: 1000px) {
@@ -507,7 +516,11 @@ html
         <div class="controls">
           <label>Job Name</label>
           <input id="cjJobName" type="text" placeholder="e.g. job-123" />
-          <div style="flex-grow: 1;"></div>
+          <label>Environment</label>
+          <select id="cjEnvironment">
+            <option value="DEV-FULL">DEV-FULL</option>
+            <option value="DEV-SMALL">DEV-SMALL</option>
+          </select>
           <div class="row">
             <button id="btnRunCJ" class="btn primary">Run</button>
             <button id="btnAbortCJ" class="btn ghost">Abort</button>
@@ -523,7 +536,13 @@ html
           </div>
         </div>
         <div class="controls">
-          <div style="flex-grow: 1;"></div>
+          <label>Branch Name</label>
+          <input id="mlBranchName" type="text" placeholder="e.g. develop" value="develop" />
+          <label>Environment</label>
+          <select id="mlEnvironment">
+            <option value="DEV-FULL">DEV-FULL</option>
+            <option value="DEV-SMALL">DEV-SMALL</option>
+          </select>
           <div class="row">
             <button id="btnDeployML" class="btn primary">Deploy</button>
             <button id="btnAbortML" class="btn ghost">Abort</button>
@@ -571,6 +590,7 @@ html
       </div>
     </div>
   </div>
+  <div class="copyright">&copy; 2025 CAS Lifesciences. All rights reserved.</div>
 
   <script>
     let currentMode = 'dev';
@@ -593,6 +613,39 @@ html
       }
     }
 
+    function updateEnvironmentDropdowns() {
+      try {
+        const cjSelect = document.getElementById('cjEnvironment');
+        const mlSelect = document.getElementById('mlEnvironment');
+        cjSelect.innerHTML = '';
+        mlSelect.innerHTML = '';
+        const options = currentMode === 'dev' 
+          ? [
+              { value: 'DEV-FULL', text: 'DEV-FULL' },
+              { value: 'DEV-SMALL', text: 'DEV-SMALL' }
+            ]
+          : [
+              { value: 'INGESTION', text: 'INGESTION' },
+              { value: 'TEST', text: 'TEST' }
+            ];
+        options.forEach(opt => {
+          const cjOption = document.createElement('option');
+          cjOption.value = opt.value;
+          cjOption.textContent = opt.text;
+          cjSelect.appendChild(cjOption);
+          const mlOption = document.createElement('option');
+          mlOption.value = opt.value;
+          mlOption.textContent = opt.text;
+          mlSelect.appendChild(mlOption);
+        });
+        cjSelect.value = options[0].value;
+        mlSelect.value = options[0].value;
+      } catch (e) {
+        console.error('Error updating environment dropdowns:', e);
+        appendLine('Error updating environment dropdowns: ' + e.message, 'stderr');
+      }
+    }
+
     function toggleUIMiddlewareSections() {
       try {
         uiMiddlewareCard.style.display = currentMode === 'dev' ? 'flex' : 'none';
@@ -609,14 +662,18 @@ html
         SERVER = getServer(currentMode);
         updateServerMeta();
         toggleUIMiddlewareSections();
+        updateEnvironmentDropdowns();
         document.getElementById('frHistory').innerHTML = '';
         document.getElementById('cjHistory').innerHTML = '';
         document.getElementById('mlHistory').innerHTML = '';
         if (currentMode === 'dev') {
           document.getElementById('frVersion').value = '';
           document.getElementById('structureVersion').value = '';
+          document.getElementById('mlBranchName').value = 'develop';
+        } else {
+          document.getElementById('cjJobName').value = '';
+          fetchMLHistory();
         }
-        document.getElementById('cjJobName').value = '';
         terminal.innerHTML = '';
         logBuffer = '';
         statusEl.textContent = 'Idle';
@@ -982,14 +1039,39 @@ html
     function validateCJInput() {
       try {
         const jobName = document.getElementById('cjJobName').value.trim();
+        const environment = document.getElementById('cjEnvironment').value;
         if (!jobName) {
           appendLine('Job Name is required', 'stderr');
+          return false;
+        }
+        if (!environment) {
+          appendLine('Environment is required for Corb Jobs', 'stderr');
           return false;
         }
         return true;
       } catch (e) {
         console.error('Error validating CJ input:', e);
         appendLine('Error validating CJ input: ' + e.message, 'stderr');
+        return false;
+      }
+    }
+
+    function validateMLInput() {
+      try {
+        const branchName = document.getElementById('mlBranchName').value.trim();
+        const environment = document.getElementById('mlEnvironment').value;
+        if (!branchName) {
+          appendLine('Branch Name is required for MARKLOGIC deployment', 'stderr');
+          return false;
+        }
+        if (!environment) {
+          appendLine('Environment is required for MARKLOGIC deployment', 'stderr');
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error('Error validating ML input:', e);
+        appendLine('Error validating ML input: ' + e.message, 'stderr');
         return false;
       }
     }
@@ -1010,12 +1092,16 @@ html
           try {
             const ul = document.getElementById('frHistory');
             ul.innerHTML = '';
-            if (!data || !Array.isArray(data) || data.length === 0) {
+            let historyData = data;
+            if (!Array.isArray(historyData)) {
+              historyData = historyData.history || [];
+            }
+            if (historyData.length === 0) {
               ul.innerHTML = '<li class="no-data">No UI + Middleware history data available</li>';
               appendLine('No UI + Middleware history data received', 'warn');
               return;
             }
-            const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            const sorted = historyData.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
             if (sorted.length > 0) {
               const latest = sorted[0];
               document.getElementById('frVersion').value = latest['fr-version'] || '';
@@ -1080,12 +1166,21 @@ html
           try {
             const ul = document.getElementById('mlHistory');
             ul.innerHTML = '';
-            if (!data || !Array.isArray(data) || data.length === 0) {
+            let historyData = data;
+            if (!Array.isArray(historyData)) {
+              historyData = historyData.history || [];
+            }
+            if (historyData.length === 0) {
               ul.innerHTML = '<li class="no-data">No MARKLOGIC history data available</li>';
               appendLine('No MARKLOGIC history data received', 'warn');
               return;
             }
-            const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            const sorted = historyData.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            if (sorted.length > 0 && currentMode === 'ingestion') {
+              const latest = sorted[0];
+              document.getElementById('mlBranchName').value = latest['branchName'] || '';
+              document.getElementById('mlEnvironment').value = latest['environmentType'] || (currentMode === 'dev' ? 'DEV-FULL' : 'INGESTION');
+            }
             sorted.forEach(item => {
               console.log('ML History Item:', item);
               const date = new Date(item.datetime).toLocaleDateString();
@@ -1112,6 +1207,8 @@ html
                   <span class="status-text ${statusClass}">${statusText}</span>
                   <span class="build-id">${escapeHtml(item.buildId)}</span>
                   <span class="datetime">${date} ${time}</span>
+                  <span>Branch: ${escapeHtml(item['branchName'] || 'N/A')}</span>
+                  <span>Environment: ${escapeHtml(item['environmentType'] || 'N/A')}</span>
                 </div>
               `;
               li.style.cursor = 'pointer';
@@ -1143,15 +1240,20 @@ html
           try {
             const ul = document.getElementById('cjHistory');
             ul.innerHTML = '';
-            if (!data || !Array.isArray(data) || data.length === 0) {
+            let historyData = data;
+            if (!Array.isArray(historyData)) {
+              historyData = historyData.history || [];
+            }
+            if (historyData.length === 0) {
               ul.innerHTML = '<li class="no-data">No Corb Jobs history data available</li>';
               appendLine('No Corb Jobs history data received', 'warn');
               return;
             }
-            const sorted = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
+            const sorted = historyData.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 20);
             if (sorted.length > 0) {
               const latest = sorted[0];
               document.getElementById('cjJobName').value = latest['jobName'] || '';
+              document.getElementById('cjEnvironment').value = latest['environmentType'] || (currentMode === 'dev' ? 'DEV-FULL' : 'INGESTION');
             }
             sorted.forEach(item => {
               console.log('CJ History Item:', item);
@@ -1180,6 +1282,7 @@ html
                   <span class="build-id">${escapeHtml(item.buildId)}</span>
                   <span class="datetime">${date} ${time}</span>
                   <span>Job: ${escapeHtml(item['jobName'] || 'N/A')}</span>
+                  <span>Environment: ${escapeHtml(item['environmentType'] || 'N/A')}</span>
                 </div>
               `;
               li.style.cursor = 'pointer';
@@ -1297,6 +1400,11 @@ html
           appendLine('Cannot start MARKLOGIC deployment: another deployment is in progress', 'warn');
           return;
         }
+        if (!validateMLInput()) return;
+        
+        const branchName = encodeURIComponent(document.getElementById('mlBranchName').value.trim());
+        const environment = encodeURIComponent(document.getElementById('mlEnvironment').value);
+        
         terminal.innerHTML = '';
         logBuffer = '';
         statusEl.textContent = 'Starting MARKLOGIC deploy...';
@@ -1306,7 +1414,7 @@ html
         setButtonState('btnDeployML', true);
         setButtonState('btnAbortML', false, true);
         
-        const url = `${SERVER}/api/v1/deploy/ml`;
+        const url = `${SERVER}/api/v1/deploy/ml?branchName=${branchName}&environmentType=${environment}`;
         startStream(url, (xhr) => { 
           xhrML = null; 
           setButtonState('btnDeployML', false);
@@ -1359,6 +1467,7 @@ html
         if (!validateCJInput()) return;
         
         const jobName = encodeURIComponent(document.getElementById('cjJobName').value.trim());
+        const environment = encodeURIComponent(document.getElementById('cjEnvironment').value);
         
         terminal.innerHTML = '';
         logBuffer = '';
@@ -1370,7 +1479,7 @@ html
         setButtonState('btnRunCJ', true);
         setButtonState('btnAbortCJ', false, true);
         
-        const url = `${SERVER}/api/v1/run/cj?job-name=${jobName}`;
+        const url = `${SERVER}/api/v1/run/cj?job-name=${jobName}&environmentType=${environment}`;
         startStream(url, (xhr) => { 
           xhrCJ = null; 
           setButtonState('btnRunCJ', false);
@@ -1466,6 +1575,7 @@ html
     try {
       updateServerMeta();
       toggleUIMiddlewareSections();
+      updateEnvironmentDropdowns();
       fetchFRHistory();
       fetchMLHistory();
       fetchCJHistory();
