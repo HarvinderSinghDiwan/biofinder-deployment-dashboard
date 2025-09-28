@@ -31,11 +31,11 @@
 
     .app {
       display: grid;
-      grid-template-columns: 1fr 2fr 1fr;
-      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+      gap: clamp(8px, 1.5vw, 12px);
       height: 100vh;
-      padding: 16px;
-      max-width: 1400px;
+      padding: clamp(8px, 1.5vw, 12px);
+      max-width: 90vw;
       margin: 0 auto;
       box-sizing: border-box;
       overflow: hidden;
@@ -44,7 +44,7 @@
     .panel {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: clamp(8px, 1vw, 10px);
       height: 100%;
       overflow: hidden;
     }
@@ -53,14 +53,14 @@
       background: var(--panel);
       border: 1px solid var(--neon-glow);
       border-radius: 8px;
-      padding: 14px;
+      padding: clamp(10px, 1.5vw, 12px);
       box-shadow: 0 0 12px var(--neon-glow);
       transition: box-shadow 0.3s ease;
       flex: 1;
       display: flex;
       flex-direction: column;
-      min-height: 150px;
-      max-height: 33.33%;
+      min-height: clamp(120px, 15vh, 140px);
+      max-height: 33.33vh;
       box-sizing: border-box;
     }
 
@@ -72,7 +72,7 @@
       background: var(--panel);
       border: 1px solid var(--neon-glow);
       border-radius: 8px;
-      padding: 14px;
+      padding: clamp(10px, 1.5vw, 12px);
       box-shadow: 0 0 12px var(--neon-glow);
       transition: box-shadow 0.3s ease;
       flex-grow: 1;
@@ -91,19 +91,19 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: clamp(6px, 1vh, 8px);
       flex-shrink: 0;
     }
 
     .h {
       font-family: 'Orbitron', sans-serif;
-      font-size: 16px;
+      font-size: clamp(14px, 1.5vw, 16px);
       color: var(--neon);
       text-transform: uppercase;
     }
 
     .meta {
-      font-size: 11px;
+      font-size: clamp(10px, 1vw, 11px);
       color: var(--muted);
     }
 
@@ -114,25 +114,25 @@
     .controls {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: clamp(8px, 1vw, 10px);
       flex-grow: 1;
       justify-content: space-between;
     }
 
     label {
-      font-size: 11px;
+      font-size: clamp(10px, 1vw, 11px);
       color: var(--muted);
       margin-bottom: 4px;
     }
 
     input[type="text"], select {
       width: 100%;
-      padding: 6px;
+      padding: clamp(5px, 0.8vw, 6px);
       background: rgba(0, 0, 0, 0.5);
       border: 1px solid var(--neon);
       border-radius: 4px;
       color: var(--text);
-      font-size: 11px;
+      font-size: clamp(10px, 1vw, 11px);
       outline: none;
       transition: box-shadow 0.3s ease;
       box-sizing: border-box;
@@ -144,19 +144,23 @@
 
     .row {
       display: flex;
-      gap: 10px;
+      flex-wrap: wrap;
+      gap: clamp(8px, 1vw, 10px);
       margin-top: auto;
+      justify-content: flex-start;
     }
 
     .btn {
-      padding: 8px 16px;
+      padding: clamp(6px, 1vw, 8px) clamp(12px, 1.5vw, 16px);
       border-radius: 4px;
       border: none;
       cursor: pointer;
       font-family: 'Roboto Mono', monospace;
-      font-size: 12px;
+      font-size: clamp(10px, 1vw, 12px);
       transition: all 0.3s ease;
       box-sizing: border-box;
+      flex: 1;
+      min-width: clamp(80px, 10vw, 100px);
     }
 
     .btn.primary {
@@ -187,15 +191,15 @@
 
     .switch-btn {
       position: fixed;
-      top: 10px;
-      left: 10px;
+      top: clamp(8px, 1vh, 10px);
+      left: clamp(8px, 1vw, 10px);
       background: linear-gradient(90deg, var(--neon), rgba(0, 255, 234, 0.7));
       color: #000;
       border: 2px solid var(--neon);
-      padding: 8px 16px;
+      padding: clamp(6px, 1vw, 8px) clamp(12px, 1.5vw, 16px);
       border-radius: 6px;
       font-family: 'Orbitron', sans-serif;
-      font-size: 14px;
+      font-size: clamp(12px, 1.2vw, 14px);
       cursor: pointer;
       box-shadow: 0 0 10px var(--neon-glow);
       transition: all 0.3s ease;
@@ -222,13 +226,13 @@
       background: var(--panel);
       border: 1px solid var(--neon-glow);
       border-radius: 8px;
-      padding: 14px;
+      padding: clamp(10px, 1.5vw, 12px);
       box-shadow: 0 0 12px var(--neon-glow);
       flex: 1;
       display: flex;
       flex-direction: column;
-      min-height: 150px;
-      max-height: 33.33%;
+      min-height: clamp(120px, 15vh, 140px);
+      max-height: 33.33vh;
       box-sizing: border-box;
     }
 
@@ -242,11 +246,11 @@
       margin: 0;
       overflow-y: auto;
       flex-grow: 1;
-      font-size: 11px;
+      font-size: clamp(10px, 1vw, 11px);
     }
 
     ul.history-list li {
-      padding: 6px;
+      padding: clamp(5px, 0.8vw, 6px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       cursor: pointer;
       transition: color 0.3s ease;
@@ -259,7 +263,7 @@
     }
 
     .history-item .datetime {
-      font-size: 10px;
+      font-size: clamp(9px, 0.9vw, 10px);
       color: var(--muted);
       display: block;
     }
@@ -269,15 +273,15 @@
     }
 
     .history-item span:not(.datetime) {
-      font-size: 11px;
+      font-size: clamp(10px, 1vw, 11px);
     }
 
     .status-indicator {
-      width: 10px;
-      height: 10px;
+      width: clamp(8px, 1vw, 10px);
+      height: clamp(8px, 1vw, 10px);
       border-radius: 50%;
       display: inline-block;
-      margin-right: 8px;
+      margin-right: clamp(6px, 0.8vw, 8px);
     }
 
     .status-indicator.pass {
@@ -301,8 +305,8 @@
     }
 
     .status-text {
-      font-size: 11px;
-      margin-right: 8px;
+      font-size: clamp(10px, 1vw, 11px);
+      margin-right: clamp(6px, 0.8vw, 8px);
       text-transform: uppercase;
     }
 
@@ -325,14 +329,14 @@
     .terminal {
       background: #000;
       border-radius: 8px;
-      padding: 14px;
+      padding: clamp(10px, 1.5vw, 12px);
       flex-grow: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      font-size: 12px;
+      font-size: clamp(10px, 1vw, 12px);
       color: var(--text);
-      margin-bottom: 48px;
-      max-height: calc(100% - 38px - 48px);
+      margin-bottom: clamp(40px, 5vh, 48px);
+      max-height: calc(100% - clamp(30px, 4vh, 38px) - clamp(40px, 5vh, 48px));
       box-sizing: border-box;
     }
 
@@ -344,7 +348,7 @@
 
     .ts {
       color: var(--muted);
-      margin-right: 8px;
+      margin-right: clamp(6px, 0.8vw, 8px);
     }
 
     .stdout { color: var(--success); }
@@ -364,7 +368,7 @@
       justify-content: center;
       align-items: center;
       font-family: 'Orbitron', sans-serif;
-      font-size: 24px;
+      font-size: clamp(18px, 2vw, 24px);
       color: var(--neon);
       text-shadow: 0 0 12px var(--neon-glow);
       animation: pulse 1.5s ease-in-out infinite;
@@ -383,14 +387,15 @@
 
     .sticky-buttons {
       position: absolute;
-      bottom: 14px;
-      left: 14px;
-      right: 14px;
+      bottom: clamp(10px, 1.5vw, 12px);
+      left: clamp(10px, 1.5vw, 12px);
+      right: clamp(10px, 1.5vw, 12px);
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: clamp(8px, 1vw, 12px);
       justify-content: flex-start;
       background: var(--panel);
-      padding: 8px;
+      padding: clamp(6px, 1vw, 8px);
       border-radius: 4px;
       box-shadow: 0 0 8px var(--neon-glow);
       flex-shrink: 0;
@@ -400,13 +405,15 @@
       background: var(--neon);
       color: #000;
       border: none;
-      padding: 8px 16px;
+      padding: clamp(6px, 1vw, 8px) clamp(12px, 1.5vw, 16px);
       border-radius: 4px;
       font-family: 'Roboto Mono', monospace;
-      font-size: 12px;
+      font-size: clamp(10px, 1vw, 12px);
       cursor: pointer;
       box-shadow: 0 0 8px var(--neon-glow);
       transition: all 0.3s ease;
+      flex: 1;
+      min-width: clamp(80px, 10vw, 100px);
     }
 
     .toggle-auto:hover {
@@ -415,8 +422,8 @@
 
     .spinner {
       display: inline-block;
-      width: 10px;
-      height: 10px;
+      width: clamp(8px, 1vw, 10px);
+      height: clamp(8px, 1vw, 10px);
       border: 2px solid var(--neon);
       border-radius: 50%;
       border-top-color: transparent;
@@ -429,55 +436,84 @@
 
     .no-data {
       color: var(--muted);
-      font-size: 11px;
-      padding: 6px;
+      font-size: clamp(10px, 1vw, 11px);
+      padding: clamp(5px, 0.8vw, 6px);
       text-align: center;
     }
 
     .copyright {
       position: fixed;
-      bottom: 10px;
-      left: 10px;
+      bottom: clamp(8px, 1vh, 10px);
+      left: clamp(8px, 1vw, 10px);
       color: var(--muted);
-      font-size: 11px;
+      font-size: clamp(10px, 1vw, 11px);
       z-index: 1000;
     }
 
-    @media (max-width: 1000px) {
+    @media (max-width: 1000px), (max-height: 600px) {
       .app {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         height: auto;
         overflow-y: auto;
+        padding: clamp(6px, 1vw, 8px);
       }
 
       .panel {
-        gap: 8px;
+        gap: clamp(6px, 0.8vw, 8px);
       }
 
       .card, .history-card, .console-card {
-        padding: 12px;
+        padding: clamp(8px, 1vw, 10px);
+        min-height: clamp(100px, 20vh, 120px);
         max-height: none;
       }
 
       .terminal {
-        max-height: 30vh;
+        max-height: clamp(20vh, 30vh, 40vh);
         margin-bottom: 0;
       }
 
       .sticky-buttons {
         position: static;
-        margin-top: 12px;
+        margin-top: clamp(8px, 1vh, 10px);
+        flex-wrap: wrap;
+      }
+
+      .btn, .toggle-auto {
+        min-width: clamp(70px, 8vw, 90px);
+        font-size: clamp(9px, 0.9vw, 10px);
+        padding: clamp(5px, 0.8vw, 6px) clamp(10px, 1.2vw, 12px);
       }
 
       .loading-overlay {
-        font-size: 18px;
+        font-size: clamp(16px, 1.8vw, 18px);
       }
 
       .switch-btn {
-        top: 8px;
-        left: 8px;
-        padding: 6px 12px;
-        font-size: 12px;
+        top: clamp(6px, 1vh, 8px);
+        left: clamp(6px, 1vw, 8px);
+        padding: clamp(5px, 0.8vw, 6px) clamp(10px, 1.2vw, 12px);
+        font-size: clamp(10px, 1vw, 12px);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .app {
+        padding: clamp(4px, 0.8vw, 6px);
+      }
+
+      .card, .history-card, .console-card {
+        padding: clamp(6px, 0.8vw, 8px);
+        min-height: clamp(80px, 15vh, 100px);
+      }
+
+      .btn, .toggle-auto {
+        min-width: clamp(60px, 7vw, 80px);
+        font-size: clamp(8px, 0.8vw, 9px);
+      }
+
+      .terminal {
+        max-height: clamp(15vh, 25vh, 30vh);
       }
     }
   </style>
@@ -491,7 +527,6 @@
         <div class="header">
           <div>
             <div class="h">UI + Middleware</div>
-            <div class="meta">SERVER: <span class="server-url">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
           </div>
         </div>
         <div class="controls">
@@ -510,12 +545,13 @@
         <div class="header">
           <div>
             <div class="h">Corb Jobs</div>
-            <div class="meta">SERVER: <span class="server-url">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
           </div>
         </div>
         <div class="controls">
           <label>Job Name</label>
           <input id="cjJobName" type="text" placeholder="e.g. job-123" />
+          <label>Branch Name</label>
+          <input id="cjBranchName" type="text" placeholder="e.g. develop" />
           <label>Environment</label>
           <select id="cjEnvironment">
             <option value="DEV-FULL">DEV-FULL</option>
@@ -532,7 +568,6 @@
         <div class="header">
           <div>
             <div class="h">MARKLOGIC</div>
-            <div class="meta">SERVER: <span class="server-url">api.dashboard.dev-full.lifesciences-dev.casinternal:8080</span></div>
           </div>
         </div>
         <div class="controls">
@@ -604,9 +639,7 @@
 
     function updateServerMeta() {
       try {
-        document.querySelectorAll('.server-url').forEach(span => {
-          span.textContent = SERVER.substring(7);
-        });
+        // Removed server meta update as meta elements are no longer present
       } catch (e) {
         console.error('Error updating server meta:', e);
         appendLine('Error updating server meta: ' + e.message, 'stderr');
@@ -670,8 +703,10 @@
           document.getElementById('frVersion').value = '';
           document.getElementById('structureVersion').value = '';
           document.getElementById('mlBranchName').value = 'develop';
+          document.getElementById('cjBranchName').value = 'develop';
         } else {
           document.getElementById('cjJobName').value = '';
+          document.getElementById('cjBranchName').value = 'develop';
           fetchMLHistory();
         }
         terminal.innerHTML = '';
@@ -1039,9 +1074,14 @@
     function validateCJInput() {
       try {
         const jobName = document.getElementById('cjJobName').value.trim();
+        const branchName = document.getElementById('cjBranchName').value.trim();
         const environment = document.getElementById('cjEnvironment').value;
         if (!jobName) {
           appendLine('Job Name is required', 'stderr');
+          return false;
+        }
+        if (!branchName) {
+          appendLine('Branch Name is required for Corb Jobs', 'stderr');
           return false;
         }
         if (!environment) {
@@ -1253,6 +1293,7 @@
             if (sorted.length > 0) {
               const latest = sorted[0];
               document.getElementById('cjJobName').value = latest['jobName'] || '';
+              document.getElementById('cjBranchName').value = latest['branchName'] || 'develop';
               document.getElementById('cjEnvironment').value = latest['environmentType'] || (currentMode === 'dev' ? 'DEV-FULL' : 'INGESTION');
             }
             sorted.forEach(item => {
@@ -1282,6 +1323,7 @@
                   <span class="build-id">${escapeHtml(item.buildId)}</span>
                   <span class="datetime">${date} ${time}</span>
                   <span>Job: ${escapeHtml(item['jobName'] || 'N/A')}</span>
+                  <span>Branch: ${escapeHtml(item['branchName'] || 'N/A')}</span>
                   <span>Environment: ${escapeHtml(item['environmentType'] || 'N/A')}</span>
                 </div>
               `;
@@ -1467,6 +1509,7 @@
         if (!validateCJInput()) return;
         
         const jobName = encodeURIComponent(document.getElementById('cjJobName').value.trim());
+        const branchName = encodeURIComponent(document.getElementById('cjBranchName').value.trim());
         const environment = encodeURIComponent(document.getElementById('cjEnvironment').value);
         
         terminal.innerHTML = '';
@@ -1479,7 +1522,7 @@
         setButtonState('btnRunCJ', true);
         setButtonState('btnAbortCJ', false, true);
         
-        const url = `${SERVER}/api/v1/run/cj?job-name=${jobName}&environmentType=${environment}`;
+        const url = `${SERVER}/api/v1/run/cj?job-name=${jobName}&branchName=${branchName}&environmentType=${environment}`;
         startStream(url, (xhr) => { 
           xhrCJ = null; 
           setButtonState('btnRunCJ', false);

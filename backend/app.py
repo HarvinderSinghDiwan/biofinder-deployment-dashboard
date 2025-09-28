@@ -650,7 +650,7 @@ def run_corb_job():
             "required_parameters": ["job-name", "branchName", "environmentType"],
             "status_code": 400
         }), 400
-    
+    EnvironmentName = getEnvironmentName(environment_type)
     lock_key = 'deploy_ml_cj_lock'
     if not r.set(lock_key, SERVER_ID, nx=True, ex=LOCK_TIMEOUT):
         return jsonify({"error": "corb job is already running or a MarkLogic deployment is in progress."}), 409
